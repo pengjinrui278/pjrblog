@@ -213,6 +213,74 @@ export async function deleteComment(commentId: string) {
   revalidatePath(`/posts/${comment.post.slug}`);
 }
 
+export async function replyToComment(
+  commentId: string,
+  formData: FormData
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
+  const content = formData.get("content") as string;
+  if (!content?.trim()) {
+    return { error: "请输入回复内容" };
+  }
+
+  const parent = await prisma.comment.findUnique({
+    where: { id: commentId },
+    include: { post: { select: { slug: true } } },
+  });
+
+  if (!parent) {
+    return { error: "评论不存在" };
+  }
+
+  await prisma.comment.create({
+    data: {
+      content: content.trim(),
+      authorId: session.user.id,
+      postId: parent.postId,
+      parentId: commentId,
+    },
+  });
+
+  revalidatePath(`/posts/${parent.post.slug}`);
+}
+
+export async function toggleCommentLike(commentId: string) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
+  const existing = await prisma.commentLike.findUnique({
+    where: {
+      userId_commentId: {
+        userId: session.user.id,
+        commentId,
+      },
+    },
+  });
+
+  if (existing) {
+    await prisma.commentLike.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.commentLike.create({
+      data: { userId: session.user.id, commentId },
+    });
+  }
+
+  const comment = await prisma.comment.findUnique({
+    where: { id: commentId },
+    include: { post: { select: { slug: true } } },
+  });
+
+  if (comment) {
+    revalidatePath(`/posts/${comment.post.slug}`);
+  }
+}
+
 // --- Like Actions ---
 
 export async function toggleLike(postId: string) {

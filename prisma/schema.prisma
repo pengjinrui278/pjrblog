@@ -15,9 +15,10 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  posts    Post[]
-  comments Comment[]
-  likes    Like[]
+  posts         Post[]
+  comments      Comment[]
+  likes         Like[]
+  commentLikes  CommentLike[]
 }
 
 model Post {
@@ -48,6 +49,13 @@ model Comment {
 
   postId String
   post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // Self-referential replies
+  parentId String?
+  parent   Comment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[]     @relation("CommentReplies")
+
+  likes CommentLike[]
 }
 
 model Like {
@@ -61,4 +69,17 @@ model Like {
   post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId])
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  commentId String
+  comment   Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
 }
