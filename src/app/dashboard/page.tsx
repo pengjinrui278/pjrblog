@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { deletePost } from "@/lib/actions";
 import Link from "next/link";
+import { DeleteButton } from "@/components/DeleteButton";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -79,19 +80,7 @@ export default async function DashboardPage() {
                         action={deletePost.bind(null, post.id)}
                         className="inline"
                       >
-                        <button
-                          type="submit"
-                          className="text-sm text-red-500 hover:underline"
-                          onClick={(e) => {
-                            if (
-                              !confirm("确定删除这篇文章？此操作不可恢复。")
-                            ) {
-                              e.preventDefault();
-                            }
-                          }}
-                        >
-                          删除
-                        </button>
+                        <DeleteButton postId={post.id} />
                       </form>
                     </div>
                   </td>
