@@ -12,10 +12,11 @@ export default async function PostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const decodedSlug = decodeURIComponent(slug);
   const session = await auth();
 
   const post = await prisma.post.findUnique({
-    where: { slug },
+    where: { slug: decodedSlug },
     include: {
       author: { select: { id: true, name: true, email: true } },
       comments: {
