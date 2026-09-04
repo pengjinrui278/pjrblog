@@ -122,7 +122,7 @@ import { PLAYLIST, QQ_PLAYLIST_ID } from '../consts';
 
     /* ---------- 解析播放地址：本地文件 > QQ 代理 > 外链兜底 ---------- */
     async function resolveUrl(s) {
-      if (s.file) return s.file;                       // 路径一：本地文件，永远可用
+      if (s.file) return encodeURI(s.file);            // 路径一：本地文件，永远可用（编码空格/中文）
       if (urls[s.mid]) return urls[s.mid];             // 缓存
       var r = await fetch('/api/qqmusic/url?mid=' + encodeURIComponent(s.mid));
       if (!r.ok) throw new Error('qq ' + r.status);
