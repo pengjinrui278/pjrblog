@@ -313,62 +313,99 @@ section.block > h2::after { content: ""; flex: 1; height: 1px; background: var(-
 .jitem p { margin: 5px 0 0; color: var(--ink2); font-size: 13.5px; }
 .jitem .sg { margin-top: 7px; color: var(--seal); font-size: 12px; }
 
-/* ---------- 唱片机 ---------- */
+/* ---------- 唱机设备台（吧台 · 水墨盘 · 可拖拽） ---------- */
 #player {
-  position: fixed; right: 22px; bottom: 22px; z-index: 70;
+  position: fixed; left: 50%; bottom: 18px; z-index: 70;
+  transform: translateX(-50%);
   display: flex; align-items: center; gap: 14px;
-  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-  padding: 12px 16px 12px 12px; box-shadow: var(--shadow);
-  transition: transform .25s ease;
+  max-width: min(560px, calc(100vw - 24px));
+  background: var(--card);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border: 1px solid var(--line); border-radius: 16px;
+  padding: 10px 16px 10px 12px; box-shadow: var(--shadow);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  user-select: none; -webkit-user-select: none;
 }
-#player.min { transform: translateY(calc(100% - 40px)); }
-#player .toggle {
-  position: absolute; top: 8px; right: 10px; background: none; border: none;
-  color: var(--ink2); cursor: pointer; font-size: 13px; padding: 2px 6px;
-}
-.vinyl-wrap { position: relative; width: 72px; height: 72px; flex: none; }
+#player.floating { bottom: auto; transform: none; cursor: grab; touch-action: none; }
+#player.dragging { cursor: grabbing; box-shadow: 0 18px 44px rgba(20, 15, 5, .35); }
+
+/* 迷你态：收成一张小碟 */
+#player.min { padding: 7px 9px; gap: 6px; }
+#player.min .p-mid, #player.min .p-ctrl { display: none; }
+#player.min .vinyl-wrap { width: 38px; height: 38px; }
+#player.min .vinyl { width: 38px; height: 38px; animation-duration: 2.8s; }
+#player.min .vinyl::after { inset: 12px; }
+#player.min .vinyl::before { inset: 17px; }
+#player.min .vinyl .label { inset: 12px; font-size: 9px; animation-duration: 2.8s; }
+#player.min .p-arm { display: none; }
+
+/* 水墨盘：墨团 + 水波纹 + 纸心 */
+.vinyl-wrap { position: relative; width: 84px; height: 84px; flex: none; }
 .vinyl {
-  width: 72px; height: 72px; border-radius: 50%;
-  background: repeating-radial-gradient(circle at 50% 50%, #26221b 0 1.5px, #332d23 1.5px 3px);
-  box-shadow: 0 2px 8px rgba(20, 15, 5, .35), inset 0 0 0 2px #1b1712;
-  position: relative; animation: spin 3.4s linear infinite; animation-play-state: paused;
+  width: 84px; height: 84px; border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(247, 241, 227, .09), transparent 44%),
+    radial-gradient(circle at 70% 74%, rgba(181, 67, 44, .22), transparent 48%),
+    radial-gradient(circle at 64% 24%, rgba(46, 78, 126, .20), transparent 46%),
+    radial-gradient(circle at 30% 78%, rgba(217, 164, 65, .10), transparent 42%),
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 2.5px, rgba(247, 241, 227, .05) 2.5px 3.5px),
+    #23201a;
+  box-shadow: 0 4px 14px rgba(20, 15, 5, .4), inset 0 0 0 1px rgba(247, 241, 227, .08), inset 0 0 24px rgba(0, 0, 0, .55);
+  position: relative; animation: spin 3.6s linear infinite; animation-play-state: paused;
 }
 #player.playing .vinyl { animation-play-state: running; }
-.vinyl::after { content: ""; position: absolute; inset: 24px; border-radius: 50%; background: var(--seal); }
-.vinyl::before { content: ""; position: absolute; inset: 32px; border-radius: 50%; background: var(--card); z-index: 2; }
+.vinyl::after {
+  content: ""; position: absolute; inset: 27px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 32%, #fbf6ea, #ece1c8);
+  box-shadow: inset 0 0 0 1px rgba(90, 70, 40, .3);
+}
+.vinyl::before { content: ""; position: absolute; inset: 39px; border-radius: 50%; background: #23201a; z-index: 2; }
 .vinyl .label {
-  position: absolute; inset: 24px; z-index: 3; display: grid; place-items: center;
-  color: var(--paper); font-size: 9px; font-weight: 700; border-radius: 50%;
+  position: absolute; inset: 27px; z-index: 3; display: grid; place-items: center;
+  color: #3a3125; font-size: 13px; font-weight: 700; border-radius: 50%;
+  animation: spin 3.6s linear infinite reverse; animation-play-state: paused;
 }
-.p-arm {
-  position: absolute; right: -7px; top: -5px; width: 28px; height: 3.5px;
-  background: #a89e88; border-radius: 2px; transform-origin: right center;
-  transform: rotate(24deg); transition: transform .4s;
-}
-#player.playing .p-arm { transform: rotate(6deg); }
+#player.playing .vinyl .label { animation-play-state: running; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .vinyl { animation: none; }
+  .vinyl, .vinyl .label { animation: none; }
   html { scroll-behavior: auto; }
 }
-.p-info { min-width: 0; }
-.p-info .sn { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
-.p-info .sa { color: var(--ink2); font-size: 12px; margin-top: 1px; }
-.p-ctrl { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
-.p-ctrl button {
-  background: none; border: none; color: var(--ink2); cursor: pointer; font-size: 15px;
-  width: 26px; height: 24px; display: grid; place-items: center;
+.p-arm {
+  position: absolute; right: -8px; top: -4px; width: 30px; height: 3.5px;
+  background: #a89e88; border-radius: 2px; transform-origin: right center;
+  transform: rotate(26deg); transition: transform .4s;
 }
-.p-ctrl button:hover { color: var(--seal); }
+.p-arm::after { content: ""; position: absolute; left: -4px; top: -2.5px; width: 9px; height: 9px; border-radius: 50%; background: #8a8272; }
+#player.playing .p-arm { transform: rotate(7deg); }
+
+/* 中段：曲名 + 进度 */
+.p-mid { flex: 1; min-width: 0; }
+.p-info { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.p-info .sn { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-info .sa { color: var(--ink2); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-prog { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.pbar { flex: 1; height: 3px; background: var(--line); border-radius: 2px; position: relative; min-width: 80px; cursor: pointer; }
+.pbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--seal); border-radius: 2px; }
+.ptime { font-size: 10.5px; color: var(--ink2); font-family: var(--mono); flex: none; }
+
+/* 右段：控制钮 + 收起钮 */
+.p-ctrl { display: flex; align-items: center; gap: 1px; flex: none; }
+.p-ctrl button, #player .toggle {
+  background: none; border: none; color: var(--ink2); cursor: pointer; font-size: 15px;
+  width: 27px; height: 27px; display: grid; place-items: center; border-radius: 7px;
+}
+.p-ctrl button:hover, #player .toggle:hover { color: var(--seal); background: var(--paper2); }
 .p-ctrl .play { color: var(--seal); font-size: 19px; }
 .p-ctrl #pShuffle { opacity: .65; }
-.pbar { height: 3px; background: var(--line); border-radius: 2px; margin-top: 7px; position: relative; width: 160px; cursor: pointer; }
-.pbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--seal); border-radius: 2px; }
-.ptime { font-size: 10.5px; color: var(--ink2); margin-top: 4px; font-family: var(--mono); }
+#player .toggle { font-size: 13px; flex: none; }
+
+/* 滑出歌单 */
 #player .playlist {
-  position: absolute; right: 0; bottom: calc(100% + 10px); width: 250px;
+  position: absolute; right: 0; bottom: calc(100% + 10px); width: 270px;
   background: var(--card); border: 1px solid var(--line); border-radius: 10px;
   box-shadow: var(--shadow); overflow: hidden; display: none;
+  user-select: text; -webkit-user-select: text;
 }
 #player .playlist.open { display: block; }
 #player .playlist .ph2 { font-size: 12px; color: var(--ink2); padding: 10px 16px 6px; border-bottom: 1px dashed var(--line); }
@@ -383,10 +420,16 @@ section.block > h2::after { content: ""; flex: 1; height: 1px; background: var(-
 #player .plist2 .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #player .plist2 .n span { color: var(--ink2); }
 #player .plist2 .dur { color: var(--ink2); font-size: 11px; font-family: var(--mono); }
+
 @media (max-width: 560px) {
-  #player { right: 12px; bottom: 12px; padding: 10px 12px 10px 10px; }
-  .p-info .sn { max-width: 120px; }
-  .pbar { width: 120px; }
+  #player { left: 8px; right: 8px; bottom: 8px; transform: none; max-width: none; gap: 10px; padding: 8px 10px 8px 8px; }
+  .vinyl-wrap { width: 56px; height: 56px; }
+  .vinyl { width: 56px; height: 56px; }
+  .vinyl::after { inset: 18px; }
+  .vinyl::before { inset: 25px; }
+  .vinyl .label { inset: 18px; font-size: 10px; }
+  .p-info .sa, .ptime { display: none; }
+  #player .playlist { width: min(270px, calc(100vw - 28px)); }
 }
 
 /* ---------- 页脚 ---------- */
