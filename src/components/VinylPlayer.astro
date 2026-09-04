@@ -71,7 +71,10 @@ import { PLAYLIST, QQ_PLAYLIST_ID } from '../consts';
           renderList();
           document.querySelector('#pPlaylist .ph2').textContent = '歌单「灯下常听」+ QQ 歌单 · 共 ' + list.length + ' 首';
         })
-        .catch(function () {});
+        .catch(function () {
+          // 歌单详情需要登录态：明示原因，本地歌单照常可用
+          document.querySelector('#pPlaylist .ph2').textContent = 'QQ 歌单需配置 QQ_MUSIC_COOKIE · 先用本地歌单';
+        });
     }
 
     document.getElementById('pListBtn').addEventListener('click', function () {

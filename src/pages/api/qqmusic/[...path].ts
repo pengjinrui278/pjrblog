@@ -37,15 +37,35 @@ async function search(q: string) {
 }
 
 async function playlist(id: string) {
-  const u = `https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?id=${encodeURIComponent(id)}&format=json&newsong=1`;
-  const r = await fetch(u, { headers: qqHeaders() });
-  const j = await r.json();
-  const songs = j.data?.[0]?.songlist ?? [];
-  return songs.map((s: any) => ({
-    mid: s.songmid,
-    name: s.songname,
-    artist: (s.singer ?? []).map((x: any) => x.name).join('/'),
-  }));
+  // 歌单详情也要登录态：先走经典 fcg_ucc 接口，失败再试 musicu musichallPlaylist。
+  // 两者都会在配置了 QQ_MUSIC_COOKIE 后正常工作。
+  try {
+    const u = `https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?id=${encodeURIComponent(id)}&format=json&newsong=1&outCharset=utf-8`;
+    const r = await fetch(u, { headers: qqHeaders() });
+    const j = await r.json();
+    const songs = j.data?.[0]?.songlist ?? [];
+    if (songs.length) return songs.map((s: any) => ({
+      mid: s.songmid, name: s.songname, artist: (s.singer ?? []).map((x: any) => x.name).join('/'),
+    }));
+  } catch { /* 继续试下一条通道 */ }
+
+  const body = {
+    comm: { ct: 11, cv: '12080008', format: 'json', inCharset: 'utf-8', outCharset: 'utf-8', notice: 0, platform: 'yqq', needNewCode: 0, uin: 0 },
+    req_1: {
+      module: 'music.musichallPlaylist.PlayListTrackList',
+      method: 'GetTrackList',
+      param: { playlist_id: String(id), dirid: '0', show_no: 100 },
+    },
+  };
+  const r2 = await fetch('https://u.y.qq.com/cgi-bin/musicu.fcg', {
+    method: 'POST',
+    headers: { ...qqHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const j2 = await r2.json();
+  const tracks = j2.req_1?.data?.tracks ?? [];
+  if (!tracks.length) throw new Error('歌单详情需要 QQ_MUSIC_COOKIE（匿名已被 QQ 关闭）');
+  return tracks.map((s: any) => ({ mid: s.mid, name: s.name, artist: (s.singer ?? []).map((x: any) => x.name).join('/') }));
 }
 
 async function songUrl(mid: string) {

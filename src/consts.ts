@@ -27,9 +27,10 @@ export const NAV = [
 //    QQ_MUSIC_COOKIE（登录 y.qq.com 后 F12 复制 Cookie）方可取到播放地址。
 // 3. 以上都失败 —— 唱片机诚实降级为「去 QQ 音乐听 ↗」。
 //
-// QQ_PLAYLIST_ID：填你的 QQ 音乐歌单 ID（分享歌单，链接里的数字），
-// 唱片机会自动把它全部曲目并入歌单，配合 🔀 随机播放。
-export const QQ_PLAYLIST_ID = '';
+// QQ_PLAYLIST_ID：你的 QQ 音乐歌单 ID（分享歌单，链接里的数字）。
+// 唱片机会自动把整单曲目并入歌单，配合 🔀 随机播放。
+// 注意：歌单详情接口同样需要登录态——配置 QQ_MUSIC_COOKIE 后生效。
+export const QQ_PLAYLIST_ID = '8665716804';
 
 export const PLAYLIST = [
   { mid: '003ryaYw2nWz55', name: '山丘', artist: '李宗盛', file: '' },
