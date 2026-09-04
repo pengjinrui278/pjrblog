@@ -1,0 +1,124 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const memos = (await getCollection('memos'))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const trips = (await getCollection('trips'))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0, 2);
+const fmt = (d: Date) => d.toISOString().slice(0, 10);
+// 初始位置：伪随机但稳定（按索引散开）
+const pos = (i: number) => ({
+  left: `${8 + ((i * 37) % 62)}%`,
+  top: `${6 + ((i * 53) % 58)}%`,
+  rot: `${((i * 29) % 7) - 3}deg`,
+});
+const items = [
+  ...memos.map((m, i) => ({
+    id: `memo-${m.id}`, kind: 'memo', text: m.data.text, date: fmt(m.data.date),
+    color: m.data.color, ...pos(i),
+  })),
+  ...trips.map((t, i) => ({
+    id: `photo-${t.id}`, kind: 'photo', text: `${t.data.place} · ${t.data.title}`, date: fmt(t.data.date),
+    photo: t.data.photo ?? '/photos/hangzhou.svg', ...pos(i + memos.length + 2),
+  })),
+];
+---
+<Base title="灵感墙" current="灵感墙" bleed="board">
+  <div class="wrap">
+    <div style="padding:52px 0 0">
+      <div class="eyebrow">Desktop</div>
+      <h1 class="pagetitle">灵感墙</h1>
+      <p class="lede">一张可以随手整理的桌面：便签、照片、票根，拖到哪里就放在哪里。刷新后仍记得自己的位置。</p>
+    </div>
+
+    <div class="board-desk" id="desk" data-items={JSON.stringify(items)}>
+      <div class="board-add">
+        <input id="quickNote" placeholder="丢一张新便签…" maxlength="60" />
+        <button class="btn solid" id="addNote" type="button">✚</button>
+      </div>
+    </div>
+    <p class="hint" id="boardHint" style="margin-top:12px">拖拽即整理 · 位置存在你自己的浏览器里 · 配好 GITHUB_TOKEN 后新便签可直接入库上线</p>
+  </div>
+
+  <script define:vars={{ items }}>
+    const desk = document.getElementById('desk');
+    const HINT = document.getElementById('boardHint');
+
+    function makeEl(it, i) {
+      const el = document.createElement(it.kind === 'photo' ? 'a' : 'div');
+      el.className = `desk-item${it.kind === 'photo' ? ' photo' : ''}`;
+      el.dataset.id = it.id;
+      if (it.kind === 'photo') el.href = '/travel/';
+      const saved = JSON.parse(localStorage.getItem('xixi-desk') || '{}');
+      const p = saved[it.id] ?? it;
+      el.style.left = p.left; el.style.top = p.top; el.style.setProperty('--rot', p.rot);
+      if (it.kind === 'photo') {
+        el.innerHTML = `<img src="${it.photo}" width="174" alt="">${it.text}<span class="dt">${it.date}</span>`;
+      } else {
+        el.style.setProperty('--note', (it.color || '#D9A441') + '33');
+        el.innerHTML = `📌 ${it.text}<span class="dt">${it.date}</span>`;
+      }
+      attachDrag(el);
+      desk.insertBefore(el, desk.querySelector('.board-add'));
+    }
+
+    function attachDrag(el) {
+      let sx = 0, sy = 0, ox = 0, oy = 0, dragging = false;
+      el.addEventListener('pointerdown', (e) => {
+        dragging = true;
+        el.setPointerCapture(e.pointerId);
+        sx = e.clientX; sy = e.clientY;
+        const r = desk.getBoundingClientRect();
+        ox = e.clientX - r.left - el.offsetLeft; oy = e.clientY - r.top - el.offsetTop;
+        el.style.zIndex = 9;
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const r = desk.getBoundingClientRect();
+        const x = Math.max(0, Math.min(r.width - el.offsetWidth, e.clientX - r.left - ox));
+        const y = Math.max(0, Math.min(r.height - el.offsetHeight, e.clientY - r.top - oy));
+        el.style.left = x + 'px'; el.style.top = y + 'px';
+      });
+      el.addEventListener('pointerup', () => {
+        dragging = false; el.style.zIndex = '';
+        // 统一存 px 位置
+        const saved = JSON.parse(localStorage.getItem('xixi-desk') || '{}');
+        saved[el.dataset.id] = { left: el.style.left, top: el.style.top, rot: el.style.getPropertyValue('--rot') };
+        localStorage.setItem('xixi-desk', JSON.stringify(saved));
+      });
+    }
+
+    items.forEach(makeEl);
+
+    // 快速加便签：入库（配了 token）或仅存本地
+    document.getElementById('addNote').addEventListener('click', async () => {
+      const input = document.getElementById('quickNote');
+      const text = input.value.trim();
+      if (!text) return;
+      const it = {
+        id: 'local-' + Date.now(), kind: 'memo', text,
+        date: new Date().toISOString().slice(0, 10), color: '#B5432C',
+        left: `${10 + Math.random() * 50}%`, top: `${10 + Math.random() * 50}%`, rot: `${Math.random() * 6 - 3}deg`,
+      };
+      makeEl(it);
+      input.value = '';
+      try {
+        const r = await fetch('/api/github', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            files: [{
+              path: `src/content/memos/${it.id}.md`,
+              content: `---\ntext: ${text}\ncolor: '#B5432C'\ndate: ${it.date}\n---\n`,
+              encoding: 'utf8',
+            }], message: `memo: ${text.slice(0, 20)}`,
+          }),
+        });
+        HINT.textContent = r.ok ? '✓ 便签已入库，约 1 分钟后全站可见' : '便签已上墙（本机）；配置 GITHUB_TOKEN 后可入库';
+      } catch {
+        HINT.textContent = '便签已上墙（本机保存）；配置 GITHUB_TOKEN 后可入库';
+      }
+    });
+  </script>
+</Base>

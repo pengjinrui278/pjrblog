@@ -11,7 +11,9 @@ export const NAV = [
   { href: '/', label: '首页' },
   { href: '/posts/', label: '文章' },
   { href: '/lab/', label: '实验室' },
+  { href: '/movies/', label: '观影' },
   { href: '/travel/', label: '旅程' },
+  { href: '/board/', label: '灵感墙' },
   { href: '/archive/', label: '归档' },
   { href: '/about/', label: '关于' },
 ];

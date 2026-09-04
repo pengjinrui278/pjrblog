@@ -17,21 +17,31 @@ const pins = trips.map((t) => ({
   excerpt: t.data.excerpt ?? '',
 }));
 ---
-<Base title="旅程" current="旅程">
+<Base title="旅程" current="旅程" bleed="travel">
   <div class="wrap">
     <div style="padding:52px 0 0">
       <div class="eyebrow">Travel Log</div>
       <h1 class="pagetitle">旅程地图</h1>
-      <p class="lede">{trips.length} 个地方 · 每一枚 pin 都是一篇当日日志：何时、何地、做了什么、耳机里放着哪首歌。</p>
+      <p class="lede">{trips.length} 个地方 · 每一枚 pin 都是一篇当日日志。搜索或点击地图任意处，就能钉下一枚新的。</p>
+    </div>
+
+    <div class="map-tools">
+      <div class="searchbox" style="margin:0;max-width:340px">
+        <span class="si">⌕</span>
+        <input id="placeSearch" type="search" placeholder="搜索地点：如「青岛」「大理古城」…" autocomplete="off" />
+      </div>
+      <div id="searchResults" class="search-results"></div>
+      <button class="btn" id="markModeBtn" type="button">✚ 点击地图标记</button>
+      <a class="btn" href="/write/?type=trip">✎ 写一篇旅程</a>
     </div>
 
     <div class="travel-layout">
       <div id="map" data-pins={JSON.stringify(pins)}>
-        <div class="map-fallback">地图加载中……若长时间无响应，说明当前网络无法访问高德瓦片，侧栏日志仍可正常阅读。</div>
+        <div class="map-fallback">地图加载中……若长时间无响应：① 确认网络能访问 webrd0*.is.autonavi.com（代理软件需直连国内域名）② 浏览器需支持 WebGL。</div>
       </div>
       <div class="jlist" id="jlist">
-        {trips.map((t, i) => (
-          <div class="jitem" data-slug={t.id} data-i={i}>
+        {trips.map((t) => (
+          <div class="jitem" data-slug={t.id}>
             <div class="jh"><span>{fmt(t.data.date)} · {t.data.place}</span>{t.data.song && <span>♪ {t.data.song.name}</span>}</div>
             <b>{t.data.title}</b>
             <p>{t.data.excerpt}</p>
@@ -42,6 +52,35 @@ const pins = trips.map((t) => ({
             )}
           </div>
         ))}
+      </div>
+    </div>
+
+    <!-- 记录表单（搜索选点或点击地图后弹出） -->
+    <div class="record-modal" id="recordModal" hidden>
+      <div class="record-card">
+        <div class="record-head">
+          <b>✚ 钉下一枚 pin</b>
+          <button class="iconbtn" id="closeModal" type="button" aria-label="关闭">✕</button>
+        </div>
+        <div class="record-grid">
+          <label>标题 <input id="fTitle" placeholder="西湖环线骑行" /></label>
+          <label>地点 <input id="fPlace" placeholder="浙江杭州" /></label>
+          <label>日期 <input id="fDate" type="date" /></label>
+          <label>坐标 <input id="fCoords" readonly /></label>
+          <label class="wide">照片 <input id="fPhoto" type="file" accept="image/*" /> <span class="hint">≤800KB，jpg/png/webp/svg</span></label>
+          <label>那天的歌 <input id="fSong" placeholder="晴天 — 周杰伦" /></label>
+          <button class="btn" id="songPick" type="button">♪ 搜索补全</button>
+          <label class="wide">日志 <textarea id="fBody" rows="4" placeholder="何时、何地、做了什么……"></textarea></label>
+        </div>
+        <div id="songResults" class="search-results"></div>
+        <div class="record-actions">
+          <button class="btn solid" id="submitTrip" type="button">提交（经 GitHub 自动部署）</button>
+          <span class="hint" id="tripHint"></span>
+        </div>
+        <div id="tripFallback" hidden>
+          <p class="hint">未配置 GITHUB_TOKEN，无法直接提交。已为你生成 Markdown——复制后保存为 <code id="tripPath" class="mono"></code>：</p>
+          <textarea id="tripMd" rows="10" class="mono" style="width:100%"></textarea>
+        </div>
       </div>
     </div>
   </div>
@@ -76,15 +115,21 @@ const pins = trips.map((t) => ({
       const dLngPx = (dLng * 180) / ((A / sqrtMagic) * Math.cos(radLat) * PI);
       return [lng + dLngPx, lat + dLatPx];
     }
+    // GCJ-02 → WGS-84（近似反算，打点记录时用）
+    function gcj02ToWgs84(lng: number, lat: number) {
+      const [gLng, gLat] = wgs84ToGcj02(lng, lat);
+      return [lng * 2 - gLng, lat * 2 - gLat];
+    }
 
     const el = document.getElementById('map')!;
     let pins: any[] = [];
     try { pins = JSON.parse(el.getAttribute('data-pins') || '[]'); } catch { pins = []; }
 
     const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
-    const tileUrl = (dark: boolean) => dark
-      ? 'https://webst0{1-4}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'
-      : 'https://webrd0{1-4}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}';
+    // 修复点：MapLibre 不支持 {1-4} 子域区间写法，必须显式给出 tiles 数组
+    const tileSet = (dark: boolean) => dark
+      ? ['1', '2', '3', '4'].map(s => `https://webst0${s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}`)
+      : ['1', '2', '3', '4'].map(s => `https://webrd0${s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}`);
 
     const first = pins[0] ? wgs84ToGcj02(pins[0].coords.lng, pins[0].coords.lat) : [104.06, 30.67];
 
@@ -92,13 +137,17 @@ const pins = trips.map((t) => ({
       container: 'map',
       style: {
         version: 8,
-        sources: { gaode: { type: 'raster', tiles: [tileUrl(isDark())], tileSize: 256 } },
+        sources: { gaode: { type: 'raster', tiles: tileSet(isDark()), tileSize: 256, attribution: '© 高德地图' } },
         layers: [{ id: 'bg', type: 'raster', source: 'gaode' }],
       },
       center: first as [number, number],
       zoom: 4.2,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+
+    // 瓦片加载失败提示（常见：代理把国内域名路由到了境外）
+    let tileErrors = 0;
+    map.on('error', (e: any) => { if (e?.sourceId === 'gaode') tileErrors++; });
 
     function popupHtml(p: any) {
       const song = p.song
@@ -125,6 +174,167 @@ const pins = trips.map((t) => ({
         bounds.extend([lng, lat]);
       });
       if (pins.length > 1) map.fitBounds(bounds, { padding: 60, maxZoom: 6 });
+      if (tileErrors > 0) console.warn('部分瓦片加载失败，请检查代理是否直连 *.is.autonavi.com');
+    });
+
+    /* ---------- 记录表单 ---------- */
+    const modal = document.getElementById('recordModal') as HTMLElement;
+    let pendingPhoto: { name: string; base64: string } | null = null;
+
+    function openForm(wgsLng: number, wgsLat: number) {
+      (document.getElementById('fCoords') as HTMLInputElement).value = `${wgsLng.toFixed(5)}, ${wgsLat.toFixed(5)}`;
+      (document.getElementById('fDate') as HTMLInputElement).value = new Date().toISOString().slice(0, 10);
+      modal.hidden = false;
+    }
+    function closeForm() { modal.hidden = true; }
+    document.getElementById('closeModal')!.addEventListener('click', closeForm);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeForm(); });
+
+    document.getElementById('markModeBtn')!.addEventListener('click', function () {
+      this.classList.toggle('solid');
+      map.getCanvas().style.cursor = this.classList.contains('solid') ? 'crosshair' : '';
+      this.textContent = this.classList.contains('solid') ? '✚ 点击地图任意处…' : '✚ 点击地图标记';
+    });
+    map.on('click', (e) => {
+      const btn = document.getElementById('markModeBtn')!;
+      if (!btn.classList.contains('solid')) return;
+      const [wLng, wLat] = gcj02ToWgs84(e.lngLat.lng, e.lngLat.lat);
+      btn.classList.remove('solid');
+      map.getCanvas().style.cursor = '';
+      btn.textContent = '✚ 点击地图标记';
+      openForm(wLng, wLat);
+    });
+
+    /* ---------- 地点搜索（OpenStreetMap Nominatim，WGS-84 坐标） ---------- */
+    const sInput = document.getElementById('placeSearch') as HTMLInputElement;
+    const sBox = document.getElementById('searchResults')!;
+    let sTimer: number;
+    sInput.addEventListener('input', () => {
+      clearTimeout(sTimer);
+      const q = sInput.value.trim();
+      if (!q) { sBox.innerHTML = ''; return; }
+      sTimer = setTimeout(async () => {
+        try {
+          const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=6&accept-language=zh&q=${encodeURIComponent(q)}`);
+          const list = await r.json();
+          sBox.innerHTML = list.length
+            ? list.map((x: any, i: number) =>
+                `<div class="sr-item" data-lng="${x.lon}" data-lat="${x.lat}" data-name="${x.display_name.split(',')[0]}">
+                   <b>${x.display_name.split(',')[0]}</b><span>${x.display_name.slice(0, 60)}</span>
+                 </div>`).join('')
+            : '<div class="sr-item">没有找到——可以直接在地图上手动标记</div>';
+          sBox.querySelectorAll<HTMLElement>('.sr-item[data-lng]').forEach((item) => {
+            item.addEventListener('click', () => {
+              const lng = parseFloat(item.dataset.lng!), lat = parseFloat(item.dataset.lat!);
+              const [gLng, gLat] = wgs84ToGcj02(lng, lat);
+              map.flyTo({ center: [gLng, gLat], zoom: 9, speed: 1.6 });
+              (document.getElementById('fPlace') as HTMLInputElement).value = item.dataset.name ?? '';
+              sBox.innerHTML = '';
+              openForm(lng, lat);
+            });
+          });
+        } catch {
+          sBox.innerHTML = '<div class="sr-item">搜索服务暂时不可达（需要能访问 nominatim.org）</div>';
+        }
+      }, 350);
+    });
+
+    /* ---------- 照片读取 ---------- */
+    document.getElementById('fPhoto')!.addEventListener('change', function (this: HTMLInputElement) {
+      const file = this.files?.[0];
+      pendingPhoto = null;
+      if (!file) return;
+      if (file.size > 800 * 1024) { (document.getElementById('tripHint')!).textContent = '照片超过 800KB，请压缩后再试'; this.value = ''; return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        pendingPhoto = { name: file.name, base64: dataUrl.split(',')[1] };
+        (document.getElementById('tripHint')!).textContent = `已读取照片：${file.name}`;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    /* ---------- 歌曲搜索补全 ---------- */
+    document.getElementById('songPick')!.addEventListener('click', async () => {
+      const q = (document.getElementById('fSong') as HTMLInputElement).value.split('—')[0].trim();
+      if (!q) return;
+      const box = document.getElementById('songResults')!;
+      try {
+        const r = await fetch('/api/qqmusic/search?q=' + encodeURIComponent(q));
+        const j = await r.json();
+        box.innerHTML = (j.list ?? []).slice(0, 5).map((s: any) =>
+          `<div class="sr-item" data-mid="${s.mid}" data-name="${s.name}" data-artist="${s.artist}"><b>${s.name}</b><span>${s.artist}</span></div>`).join('');
+        box.querySelectorAll<HTMLElement>('.sr-item[data-mid]').forEach((item) => {
+          item.addEventListener('click', () => {
+            (document.getElementById('fSong') as HTMLInputElement).value = `${item.dataset.name} — ${item.dataset.artist} — ${item.dataset.mid}`;
+            box.innerHTML = '';
+          });
+        });
+      } catch { box.innerHTML = '<div class="sr-item">搜索不可用，手填「歌名 — 歌手」即可</div>'; }
+    });
+
+    /* ---------- 提交：GitHub API 或降级复制 ---------- */
+    function buildMd(slug: string, photoPath: string | null): string {
+      const [lng, lat] = (document.getElementById('fCoords') as HTMLInputElement).value.split(',').map((s: string) => parseFloat(s));
+      const [sName, sArtist, sMid] = (document.getElementById('fSong') as HTMLInputElement).value.split('—').map((s: string) => s.trim());
+      const title = (document.getElementById('fTitle') as HTMLInputElement).value || '未命名';
+      const place = (document.getElementById('fPlace') as HTMLInputElement).value || '';
+      const date = (document.getElementById('fDate') as HTMLInputElement).value || new Date().toISOString().slice(0, 10);
+      const body = (document.getElementById('fBody') as HTMLTextAreaElement).value;
+      return `---
+title: ${title}
+place: ${place}
+coords: { lng: ${lng.toFixed(5)}, lat: ${lat.toFixed(5)} }
+date: ${date}${photoPath ? `\nphoto: ${photoPath}` : ''}${sName ? `
+song:
+  mid: '${sMid || ''}'
+  name: ${sName}${sArtist ? `
+  artist: ${sArtist}` : ''}` : ''}
+excerpt: ${body.split('\n')[0].slice(0, 60)}
+---
+
+${body}
+`;
+    }
+
+    document.getElementById('submitTrip')!.addEventListener('click', async () => {
+      const hint = document.getElementById('tripHint')!;
+      const title = (document.getElementById('fTitle') as HTMLInputElement).value.trim();
+      if (!title) { hint.textContent = '先给这篇旅程起个标题吧'; return; }
+      const slug = title.toLowerCase().replace(/[^a-z0-9一-龥]+/g, '-').replace(/^-|-$/g, '') || Date.now().toString();
+      const files: any[] = [];
+      let photoPath: string | null = null;
+      if (pendingPhoto) {
+        const ext = pendingPhoto.name.split('.').pop()!.toLowerCase();
+        photoPath = `/photos/${slug}.${ext}`;
+        files.push({ path: `public/photos/${slug}.${ext}`, content: pendingPhoto.base64, encoding: 'base64' });
+      }
+      const md = buildMd(slug, photoPath);
+      files.push({ path: `src/content/trips/${slug}.md`, content: md, encoding: 'utf8' });
+
+      hint.textContent = '提交中……';
+      try {
+        const r = await fetch('/api/github', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files, message: `trip: ${title}` }),
+        });
+        if (r.ok) {
+          hint.textContent = '✓ 已提交！约 1 分钟后自动上线';
+          setTimeout(() => location.reload(), 2500);
+        } else if (r.status === 501) {
+          throw new Error('no-token');
+        } else {
+          const j = await r.json().catch(() => ({}));
+          hint.textContent = '提交失败：' + (j.error ?? r.status);
+        }
+      } catch {
+        // 降级：给出 Markdown 自行保存
+        (document.getElementById('tripFallback') as HTMLElement).hidden = false;
+        (document.getElementById('tripMd') as HTMLTextAreaElement).value = md;
+        (document.getElementById('tripPath') as HTMLElement).textContent = `src/content/trips/${slug}.md`;
+        hint.textContent = '复制上方 Markdown，放进仓库后 push 即上线';
+      }
     });
 
     // 侧栏日志 → 飞到对应 pin 并弹窗
@@ -138,11 +348,7 @@ const pins = trips.map((t) => ({
         selectJitem(slug);
         map.flyTo({ center: [lng, lat], zoom: 8, speed: 1.4 });
         setTimeout(() => {
-          const mk = (map as any)._markers?.find((m: any) => {
-            const ll = m.getLngLat();
-            return Math.abs(ll.lng - lng) < 1e-6 && Math.abs(ll.lat - lat) < 1e-6;
-          });
-          mk ? mk.togglePopup() : new maplibregl.Popup().setLngLat([lng, lat]).setHTML(popupHtml(p)).addTo(map);
+          new maplibregl.Popup().setLngLat([lng, lat]).setHTML(popupHtml(p)).addTo(map);
         }, 900);
       });
     });
@@ -150,7 +356,7 @@ const pins = trips.map((t) => ({
     // 日夜切换 → 换高德暗色瓦片
     const mo = new MutationObserver(() => {
       const src = map.getSource('gaode') as maplibregl.RasterTileSource;
-      if (src) src.setTiles([tileUrl(isDark())]);
+      if (src) src.setTiles(tileSet(isDark()));
     });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   </script>

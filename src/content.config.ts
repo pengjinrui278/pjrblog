@@ -42,4 +42,28 @@ const trips = defineCollection({
   }),
 });
 
-export const collections = { posts, trips };
+// 观影：票根式极简 frontmatter——字少，一目了然
+const movies = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/movies' }),
+  schema: z.object({
+    title: z.string(),
+    year: z.number(),
+    rating: z.number().min(0).max(5),
+    quote: z.string().max(80),
+    // 票根底色（中国传统色），缺省随机
+    color: z.string().optional(),
+    watchedDate: z.coerce.date().optional(),
+  }),
+});
+
+// 便签：灵感墙的最小单元
+const memos = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/memos' }),
+  schema: z.object({
+    text: z.string(),
+    color: z.string().default('#D9A441'),
+    date: z.coerce.date(),
+  }),
+});
+
+export const collections = { posts, trips, movies, memos };

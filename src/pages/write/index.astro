@@ -1,0 +1,236 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="写作工作室" current="" bleed="write">
+  <div class="wrap">
+    <div style="padding:52px 0 0">
+      <div class="eyebrow">Writing Studio</div>
+      <h1 class="pagetitle">✎ 写作工作室</h1>
+      <p class="lede">在这里写下一切：文章、旅程、电影票根、便签。提交后经 GitHub 自动部署上线；未配置令牌时，为你生成 Markdown 复制保存。</p>
+    </div>
+
+    <div class="write-tabs" id="tabs">
+      <button data-t="post" class="on">📄 文章</button>
+      <button data-t="trip">✈ 旅程</button>
+      <button data-t="movie">🎬 观影</button>
+      <button data-t="memo">📌 便签</button>
+    </div>
+
+    <!-- 文章 -->
+    <div class="pane" data-p="post">
+      <div class="write-grid">
+        <label class="wide">标题 <input id="p_title" placeholder="ReAct 引擎复盘：从一次对话到一个框架" /></label>
+        <label>日期 <input id="p_date" type="date" /></label>
+        <label>标签（逗号分隔） <input id="p_tags" placeholder="Agent, LLM" /></label>
+        <label>系列名 <input id="p_series" placeholder="造一个 Agent（可留空）" /></label>
+        <label>系列序号 <input id="p_order" type="number" min="1" placeholder="3" /></label>
+        <label class="wide">本篇 BGM <input id="p_bgm" placeholder="山丘 — 李宗盛" /> </label>
+        <button class="btn" id="p_bgmSearch" type="button">♪ 搜索补全 mid</button>
+        <label class="wide">摘要 <input id="p_desc" placeholder="一句话说清这篇值不值得读" /></label>
+        <label class="wide">正文（Markdown）
+          <textarea id="p_body" rows="14" class="mono" placeholder="## 第一节&#10;&#10;写点什么…… 支持 ```mermaid 与 $公式$"></textarea>
+        </label>
+      </div>
+    </div>
+
+    <!-- 旅程 -->
+    <div class="pane" data-p="trip" hidden>
+      <div class="write-grid">
+        <label class="wide">标题 <input id="t_title" placeholder="西湖环线骑行" /></label>
+        <label>地点 <input id="t_place" placeholder="浙江杭州" /></label>
+        <label>日期 <input id="t_date" type="date" /></label>
+        <label>坐标（WGS-84） <input id="t_coords" placeholder="120.1505, 30.2462" /></label>
+        <button class="btn" id="t_geo" type="button">⌕ 搜索城市自动填坐标</button>
+        <label class="wide">照片 <input id="t_photo" type="file" accept="image/*" /> <span class="hint">≤800KB</span></label>
+        <label>那天的歌 <input id="t_song" placeholder="晴天 — 周杰伦 — mid(可选)" /></label>
+        <label class="wide">日志 <textarea id="t_body" rows="6" placeholder="何时、何地、做了什么……"></textarea></label>
+      </div>
+    </div>
+
+    <!-- 观影 -->
+    <div class="pane" data-p="movie" hidden>
+      <div class="write-grid">
+        <label>片名 <input id="m_title" placeholder="让子弹飞" /></label>
+        <label>年份 <input id="m_year" type="number" placeholder="2010" /></label>
+        <label>评分（0-5，可 4.5） <input id="m_rating" type="number" step="0.5" min="0" max="5" placeholder="4.5" /></label>
+        <label>票根底色 <input id="m_color" placeholder="#B5432C 朱砂" /></label>
+        <label class="wide">一句话 <input id="m_quote" placeholder="站着，还把钱挣了。" maxlength="80" /></label>
+      </div>
+    </div>
+
+    <!-- 便签 -->
+    <div class="pane" data-p="memo" hidden>
+      <div class="write-grid">
+        <label class="wide">便签内容 <input id="n_text" placeholder="把「写」变成习惯，而不是项目。" maxlength="60" /></label>
+        <label>颜色 <input id="n_color" placeholder="#D9A441 藤黄" /></label>
+      </div>
+    </div>
+
+    <div id="songBox" class="search-results" style="position:static;width:min(420px,100%);margin:8px 0"></div>
+
+    <div class="record-actions" style="max-width:760px">
+      <button class="btn solid" id="submitBtn" type="button">提交发布</button>
+      <span class="hint" id="wHint"></span>
+    </div>
+    <div id="wFallback" hidden style="max-width:760px;margin-top:14px">
+      <p class="hint">未配置 GITHUB_TOKEN。把下面内容保存为 <code id="wPath" class="mono"></code> 后 push 即上线：</p>
+      <textarea id="wMd" rows="12" class="mono" style="width:100%"></textarea>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id: string) => document.getElementById(id) as HTMLInputElement;
+    const panes = document.querySelectorAll<HTMLElement>('.pane');
+    let type = new URLSearchParams(location.search).get('type') ?? 'post';
+    const tabs = document.querySelectorAll<HTMLButtonElement>('#tabs button');
+    function show(t: string) {
+      type = t;
+      tabs.forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+      panes.forEach((p) => p.hidden = p.dataset.p !== t);
+    }
+    tabs.forEach((b) => b.addEventListener('click', () => show(b.dataset.t!)));
+    if (['post', 'trip', 'movie', 'memo'].includes(type)) show(type);
+    ($('p_date') as HTMLInputElement).value = new Date().toISOString().slice(0, 10);
+    ($('t_date') as HTMLInputElement).value = new Date().toISOString().slice(0, 10);
+
+    /* 歌曲搜索补全（文章 BGM / 旅程那首歌） */
+    async function pickSong(target: HTMLInputElement) {
+      const q = target.value.split('—')[0].trim();
+      if (!q) return;
+      const box = $('songBox');
+      try {
+        const r = await fetch('/api/qqmusic/search?q=' + encodeURIComponent(q));
+        const j = await r.json();
+        box.innerHTML = (j.list ?? []).slice(0, 5).map((s: any) =>
+          `<div class="sr-item" data-v="${s.name} — ${s.artist} — ${s.mid}"><b>${s.name}</b><span>${s.artist}</span></div>`).join('');
+        box.querySelectorAll<HTMLElement>('.sr-item').forEach((it) => {
+          it.addEventListener('click', () => { target.value = it.dataset.v!; box.innerHTML = ''; });
+        });
+      } catch { box.innerHTML = '<div class="sr-item">搜索不可用，手填即可</div>'; }
+    }
+    $('p_bgmSearch').addEventListener('click', () => pickSong($('p_bgm')));
+    $('t_geo').addEventListener('click', async () => {
+      const q = $('t_place').value.trim();
+      if (!q) return;
+      const box = $('songBox');
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=4&accept-language=zh&q=${encodeURIComponent(q)}`);
+        const list = await r.json();
+        box.innerHTML = list.length
+          ? list.map((x: any) => `<div class="sr-item" data-v="${parseFloat(x.lon).toFixed(5)}, ${parseFloat(x.lat).toFixed(5)}"><b>${x.display_name.split(',')[0]}</b><span>${x.display_name.slice(0, 50)}</span></div>`).join('')
+          : '<div class="sr-item">没找到，手填坐标（高德地图右键可查经纬度）</div>';
+        box.querySelectorAll<HTMLElement>('.sr-item[data-v]').forEach((it) => {
+          it.addEventListener('click', () => { $('t_coords').value = it.dataset.v!; box.innerHTML = ''; });
+        });
+      } catch { box.innerHTML = '<div class="sr-item">搜索不可用，手填坐标</div>'; }
+    });
+
+    /* 照片读取 */
+    let photo: { name: string; base64: string } | null = null;
+    $('t_photo').addEventListener('change', function (this: HTMLInputElement) {
+      photo = null;
+      const f = this.files?.[0];
+      if (!f) return;
+      if (f.size > 800 * 1024) { $('wHint').textContent = '照片超过 800KB，请先压缩'; this.value = ''; return; }
+      const rd = new FileReader();
+      rd.onload = () => { photo = { name: f.name, base64: (rd.result as string).split(',')[1] }; $('wHint').textContent = `已读取：${f.name}`; };
+      rd.readAsDataURL(f);
+    });
+
+    const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9一-龥]+/g, '-').replace(/^-|-$/g, '') || Date.now().toString();
+
+    function build(): { files: any[]; md: string; path: string; title: string } {
+      if (type === 'post') {
+        const [bName, bArtist, bMid] = $('p_bgm').value.split('—').map((s) => s.trim());
+        const sName = $('p_series').value.trim(), sOrder = $('p_order').value;
+        const front = `---
+title: ${$('p_title').value || '未命名'}
+description: ${$('p_desc').value || ''}
+pubDate: ${$('p_date').value || new Date().toISOString().slice(0, 10)}
+tags: [${$('p_tags').value.split(/[,，]/).map((s) => s.trim()).filter(Boolean).map((s) => (isNaN(Number(s)) ? s : `'${s}'`)).join(', ')}]${sName ? `
+series:
+  name: ${sName}
+  order: ${Number(sOrder) || 1}` : ''}${bName ? `
+bgm:
+  mid: '${bMid || ''}'
+  name: ${bName}${bArtist ? `
+  artist: ${bArtist}` : ''}` : ''}
+---
+
+${$('p_body').value}`;
+        const path = `src/content/posts/${slug($('p_title').value)}.md`;
+        return { files: [{ path, content: front, encoding: 'utf8' }], md: front, path, title: $('p_title').value };
+      }
+      if (type === 'trip') {
+        const [lng, lat] = $('t_coords').value.split(',').map((s) => parseFloat(s));
+        const [sName, sArtist, sMid] = $('t_song').value.split('—').map((s) => s.trim());
+        const id = slug($('t_title').value);
+        let photoPath = '';
+        const files: any[] = [];
+        if (photo) {
+          const ext = photo.name.split('.').pop()!.toLowerCase();
+          photoPath = `/photos/${id}.${ext}`;
+          files.push({ path: `public/photos/${id}.${ext}`, content: photo.base64, encoding: 'base64' });
+        }
+        const md = `---
+title: ${$('t_title').value || '未命名'}
+place: ${$('t_place').value}
+coords: { lng: ${lng || 0}, lat: ${lat || 0} }
+date: ${$('t_date').value || new Date().toISOString().slice(0, 10)}${photoPath ? `
+photo: ${photoPath}` : ''}${sName ? `
+song:
+  mid: '${sMid || ''}'
+  name: ${sName}${sArtist ? `
+  artist: ${sArtist}` : ''}` : ''}
+excerpt: ${$('t_body').value.split('\n')[0].slice(0, 60)}
+---
+
+${$('t_body').value}`;
+        files.push({ path: `src/content/trips/${id}.md`, content: md, encoding: 'utf8' });
+        return { files, md, path: `src/content/trips/${id}.md`, title: $('t_title').value };
+      }
+      if (type === 'movie') {
+        const md = `---
+title: ${$('m_title').value || '未命名'}
+year: ${Number($('m_year').value) || new Date().getFullYear()}
+rating: ${Number($('m_rating').value) || 0}
+quote: ${$('m_quote').value || '还没想好。'}${$('m_color').value ? `
+color: '${$('m_color').value}'` : ''}
+watchedDate: ${new Date().toISOString().slice(0, 10)}
+---
+
+${$('m_quote').value}`;
+        const path = `src/content/movies/${slug($('m_title').value)}.md`;
+        return { files: [{ path, content: md, encoding: 'utf8' }], md, path, title: $('m_title').value };
+      }
+      const md = `---
+text: ${$('n_text').value || '空白便签'}
+color: '${$('n_color').value || '#D9A441'}'
+date: ${new Date().toISOString().slice(0, 10)}
+---
+`;
+      const path = `src/content/memos/memo-${Date.now()}.md`;
+      return { files: [{ path, content: md, encoding: 'utf8' }], md, path, title: '便签' };
+    }
+
+    $('submitBtn').addEventListener('click', async () => {
+      const hint = $('wHint');
+      const { files, md, path, title } = build();
+      hint.textContent = '提交中……';
+      try {
+        const r = await fetch('/api/github', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files, message: `${type}: ${title || path}` }),
+        });
+        if (r.ok) { hint.textContent = '✓ 已提交！约 1 分钟后自动上线'; return; }
+        if (r.status !== 501) { const j = await r.json().catch(() => ({})); hint.textContent = '提交失败：' + (j.error ?? r.status); return; }
+        throw new Error('no-token');
+      } catch {
+        ($('wFallback') as HTMLElement).hidden = false;
+        ($('wMd') as HTMLTextAreaElement).value = md;
+        $('wPath').textContent = path;
+        hint.textContent = '复制上方内容保存到仓库对应路径，push 后即上线';
+      }
+    });
+  </script>
+</Base>

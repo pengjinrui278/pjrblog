@@ -7,8 +7,9 @@ interface Props {
   title?: string;
   description?: string;
   current?: string;
+  bleed?: string;
 }
-const { title, description = SITE.description, current = '' } = Astro.props;
+const { title, description = SITE.description, current = '', bleed = 'home' } = Astro.props;
 const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name}的博客`;
 ---
 <!doctype html>
@@ -36,7 +37,25 @@ const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name}的博客`;
       })();
     </script>
   </head>
-  <body>
+  <body data-bleed={bleed}>
+    <!-- 浸染背景：四团多色墨/染料，页面各有配色，feTurbulence 撕出浸润边缘 -->
+    <div id="bleed" aria-hidden="true">
+      <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <filter id="inkbleed" x="-40%" y="-40%" width="180%" height="180%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.006 0.010" numOctaves="3" seed="11" result="n" />
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="170" />
+            <feGaussianBlur stdDeviation="14" />
+          </filter>
+        </defs>
+        <g filter="url(#inkbleed)">
+          <ellipse class="b1" cx="180" cy="130" rx="380" ry="270" />
+          <ellipse class="b2" cx="1280" cy="170" rx="320" ry="240" />
+          <ellipse class="b3" cx="920" cy="830" rx="400" ry="250" />
+          <ellipse class="b4" cx="120" cy="780" rx="280" ry="210" />
+        </g>
+      </svg>
+    </div>
     <div id="readbar"></div>
     <header class="topbar">
       <div class="wrap">
@@ -47,6 +66,7 @@ const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name}的博客`;
           ))}
         </nav>
         <a class="iconbtn" href="/archive/" title="搜索" aria-label="搜索">⌕</a>
+        <a class="writebtn" href="/write/" title="写作工作室">✎ 写</a>
         <button class="iconbtn" id="themeBtn" title="日景 / 夜景" aria-label="切换主题">☾</button>
       </div>
     </header>

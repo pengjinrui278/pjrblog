@@ -4,76 +4,87 @@ import { SITE } from '../consts';
 import { getCollection } from 'astro:content';
 
 const posts = (await getCollection('posts', ({ data }) => !data.draft))
-  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
-  .slice(0, 5);
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 const trips = (await getCollection('trips'))
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0, 3);
+const movies = (await getCollection('movies'))
+  .sort((a, b) => (b.data.watchedDate?.valueOf() ?? 0) - (a.data.watchedDate?.valueOf() ?? 0))
+  .slice(0, 2);
+const memos = (await getCollection('memos'))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0, 2);
 const fmt = (d: Date) => d.toISOString().slice(0, 10);
+const latest = posts[0];
 ---
-<Base current="首页">
+<Base current="首页" bleed="home">
   <div class="wrap">
-    <div class="hero">
-      <div class="eyebrow">Under the Lamp</div>
-      <div class="hi">你好，我是<span class="seal-name">{SITE.name}</span>。</div>
-      <p class="sub">{SITE.description}这里是我的书房，也是我的名片。</p>
+    <!-- B3 · 杂志大留白头版 -->
+    <div class="hero" style="min-height:62vh;display:flex;flex-direction:column;justify-content:center">
+      <div class="eyebrow">Under the Lamp · 曦曦</div>
+      <div class="hi" style="max-width:640px">写代码，<br/>也写代码<span class="seal-name">之外</span>。</div>
+      <p class="sub">{SITE.description}</p>
       <div class="quick">
-        <a class="btn solid" href="/posts/">开始阅读 →</a>
-        <a class="btn" href="/lab/">逛逛实验室</a>
-        <a class="btn" href="/travel/">墙上的地图</a>
+        <a class="btn solid" href={latest ? `/posts/${latest.id}/` : '/posts/'}>读最新一篇 →</a>
+        <a class="btn" href="/about/">这是谁？</a>
       </div>
+      <div style="margin-top:auto;color:var(--ink2);font-size:13px">↓ 桌面上散落着我的最近</div>
     </div>
+
+    <!-- A4 · 散点桌面（首页版）：最新物件散落一桌 -->
+    <section class="block">
+      <h2>桌面</h2>
+      <div class="board-desk" style="height:56vh">
+        {latest && (
+          <a class="desk-item" href={`/posts/${latest.id}/`} style={`--note:#FDFAF1;--rot:-1.5deg;left:6%;top:12%`}>
+            📄 最新长文<br/><b>{latest.data.title}</b>
+            <span class="dt">{fmt(latest.data.pubDate)}</span>
+          </a>
+        )}
+        {memos[0] && (
+          <a class="desk-item" href="/board/" style={`--note:${memos[0].data.color}33;--rot:2deg;left:52%;top:8%`}>
+            📌 {memos[0].data.text}
+            <span class="dt">{fmt(memos[0].data.date)}</span>
+          </a>
+        )}
+        {trips[0] && (
+          <a class="desk-item photo" href="/travel/" style={`--rot:1.2deg;left:30%;top:44%`}>
+            <img src={trips[0].data.photo ?? '/photos/hangzhou.svg'} alt={trips[0].data.place} width="174" />
+            ✈ {trips[0].data.place} · {trips[0].data.title}
+            <span class="dt">{fmt(trips[0].data.date)}</span>
+          </a>
+        )}
+        {movies[0] && (
+          <a class="desk-item" href="/movies/" style={`--note:${movies[0].data.color ?? '#8A6A45'}44;--rot:-2.2deg;left:70%;top:40%`}>
+            🎬 《{movies[0].data.title}》<br/>「{movies[0].data.quote}」
+            <span class="dt">{movies[0].data.year} · ★{movies[0].data.rating}</span>
+          </a>
+        )}
+        <div class="board-add">
+          <a class="btn" href="/board/">去灵感墙整理桌面 →</a>
+        </div>
+      </div>
+    </section>
 
     <section class="block">
       <h2>工坊台 · 可以上手玩</h2>
       <div class="bench">
         <a class="tool" href="/lab/#agent">
           <div class="tt">🤖 ReAct Agent 框架</div>
-          <div class="td">12 工具 · 长期记忆 · 多 Agent 协作 · 任务工作流。框架复盘的完整思考都在系列文章里。</div>
+          <div class="td">12 工具 · 长期记忆 · 多 Agent 协作。复盘的完整思考都在系列文章里。</div>
           <div class="tm"><span class="tag">Python</span><span class="tag">LLM</span><span class="go">进实验室 →</span></div>
         </a>
         <a class="tool" href="/lab/#camera">
           <div class="tt">📷 AI 构图相机</div>
-          <div class="td">ML Kit 几何检测辅助构图。V9 链路真机验收的踩坑记录与改良路线。</div>
+          <div class="td">ML Kit 几何检测辅助构图。V9 链路真机验收的踩坑记录。</div>
           <div class="tm"><span class="tag">Android</span><span class="tag">ML Kit</span><span class="go">进实验室 →</span></div>
         </a>
         <a class="tool" href="/lab/#blog">
           <div class="tt">🧱 这间书房本身</div>
-          <div class="td">Astro 静态站 · 唱片机 · 旅程地图。自产自销的第一个作品，设计稿与代码都在。</div>
+          <div class="td">Astro 静态站 · 唱片机 · 旅程地图。自产自销的第一个作品。</div>
           <div class="tm"><span class="tag">Astro</span><span class="tag">开源</span><span class="go">看复盘 →</span></div>
         </a>
       </div>
-    </section>
-
-    <section class="block">
-      <h2>近期长文</h2>
-      <ul class="plist">
-        {posts.map((p) => (
-          <li>
-            <span class="d">{fmt(p.data.pubDate)}</span>
-            <span class="t">
-              <a href={`/posts/${p.id}/`}>{p.data.title}</a>
-              {p.data.series && <span class="ser"> · 系列「{p.data.series.name}」第 {p.data.series.order} 篇</span>}
-            </span>
-            <span class="s">{p.data.tags[0] ?? '随笔'}</span>
-          </li>
-        ))}
-      </ul>
-      <p style="margin-top:18px"><a href="/posts/">全部文章 →</a></p>
-    </section>
-
-    <section class="block">
-      <h2>最近的旅程</h2>
-      <ul class="plist">
-        {trips.map((t) => (
-          <li>
-            <span class="d">{fmt(t.data.date)}</span>
-            <span class="t"><a href="/travel/">{t.data.place} · {t.data.title}</a></span>
-            <span class="s">✈</span>
-          </li>
-        ))}
-      </ul>
-      <p style="margin-top:18px"><a href="/travel/">展开地图 →</a></p>
     </section>
   </div>
 </Base>

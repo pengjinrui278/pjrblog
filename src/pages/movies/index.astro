@@ -1,0 +1,33 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const movies = (await getCollection('movies'))
+  .sort((a, b) => (b.data.watchedDate?.valueOf() ?? 0) - (a.data.watchedDate?.valueOf() ?? 0));
+const PALETTE = ['#B5432C', '#2E4E7E', '#6C7B4E', '#D9A441', '#6B4E7E', '#3B5A64'];
+const stars = (r: number) => '★'.repeat(Math.round(r)) + '☆'.repeat(5 - Math.round(r));
+---
+<Base title="观影" current="观影" bleed="movies">
+  <div class="wrap">
+    <div style="padding:52px 0 0">
+      <div class="eyebrow">Cinema Wall</div>
+      <h1 class="pagetitle">观影墙</h1>
+      <p class="lede">一张票根一部片。正面是片名与星级，背面只有一句话。</p>
+      <a class="btn solid" href="/write/?type=movie" style="margin-top:16px">✎ 记一部</a>
+    </div>
+
+    <div class="ticket-wall">
+      {movies.map((m, i) => (
+        <div class="ticket" style={`--stub:${m.data.color ?? PALETTE[i % PALETTE.length]}`}>
+          <div class="stub">
+            <span class="yr">{m.data.year}{m.data.watchedDate ? ` · ${m.data.watchedDate.toISOString().slice(0, 10)}` : ''}</span>
+            <span class="tt">{m.data.title}</span>
+            <span class="stars">{stars(m.data.rating)}</span>
+          </div>
+          <div class="tear"></div>
+          <div class="quote">{m.data.quote}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+</Base>
