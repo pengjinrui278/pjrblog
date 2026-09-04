@@ -2,6 +2,8 @@
 import '../styles/global.css';
 import { SITE, NAV } from '../consts';
 import VinylPlayer from '../components/VinylPlayer.astro';
+import Icon from '../components/Icon.astro';
+import { ClientRouter } from 'astro:transitions';
 
 interface Props {
   title?: string;
@@ -20,6 +22,8 @@ const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name}的博客`;
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- 页面软切换：唱片机跨页续播、背景不重建（不支持时自动退回整页跳转） -->
+    <ClientRouter />
     <!-- 字体：浏览器走系统代理即可加载；加载失败时回退本地宋体栈 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -38,8 +42,8 @@ const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name}的博客`;
     </script>
   </head>
   <body data-bleed={bleed}>
-    <!-- 浸染背景：四团多色墨/染料，页面各有配色，feTurbulence 撕出浸润边缘 -->
-    <div id="bleed" aria-hidden="true">
+    <!-- 浸染背景：四团多色墨/染料。每团 = 径向渐变（浓芯→晕边），页面配色走 CSS 变量，feTurbulence 撕出浸润边缘 -->
+    <div id="bleed" aria-hidden="true" transition:persist="bleed">
       <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
         <defs>
           <filter id="inkbleed" x="-40%" y="-40%" width="180%" height="180%">
@@ -47,12 +51,16 @@ const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name}的博客`;
             <feDisplacementMap in="SourceGraphic" in2="n" scale="170" />
             <feGaussianBlur stdDeviation="14" />
           </filter>
+          <radialGradient id="ink1"><stop offset="0%" class="s1a" /><stop offset="50%" class="s1b" /><stop offset="100%" class="s1c" /></radialGradient>
+          <radialGradient id="ink2"><stop offset="0%" class="s2a" /><stop offset="50%" class="s2b" /><stop offset="100%" class="s2c" /></radialGradient>
+          <radialGradient id="ink3"><stop offset="0%" class="s3a" /><stop offset="50%" class="s3b" /><stop offset="100%" class="s3c" /></radialGradient>
+          <radialGradient id="ink4"><stop offset="0%" class="s4a" /><stop offset="50%" class="s4b" /><stop offset="100%" class="s4c" /></radialGradient>
         </defs>
         <g filter="url(#inkbleed)">
-          <ellipse class="b1" cx="180" cy="130" rx="380" ry="270" />
-          <ellipse class="b2" cx="1280" cy="170" rx="320" ry="240" />
-          <ellipse class="b3" cx="920" cy="830" rx="400" ry="250" />
-          <ellipse class="b4" cx="120" cy="780" rx="280" ry="210" />
+          <ellipse class="b1" cx="180" cy="130" rx="380" ry="270" fill="url(#ink1)" />
+          <ellipse class="b2" cx="1280" cy="170" rx="320" ry="240" fill="url(#ink2)" />
+          <ellipse class="b3" cx="920" cy="830" rx="400" ry="250" fill="url(#ink3)" />
+          <ellipse class="b4" cx="120" cy="780" rx="280" ry="210" fill="url(#ink4)" />
         </g>
       </svg>
     </div>
@@ -65,9 +73,12 @@ const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name}的博客`;
             <a href={n.href} class={current === n.label ? 'on' : ''}>{n.label}</a>
           ))}
         </nav>
-        <a class="iconbtn" href="/archive/" title="搜索" aria-label="搜索">⌕</a>
-        <a class="writebtn" href="/write/" title="写作工作室">✎ 写</a>
-        <button class="iconbtn" id="themeBtn" title="日景 / 夜景" aria-label="切换主题">☾</button>
+        <a class="iconbtn" href="/archive/" title="搜索" aria-label="搜索"><Icon name="search" size={17} /></a>
+        <a class="writebtn" href="/write/" title="写作工作室"><Icon name="pen" size={14} /> 写</a>
+        <button class="iconbtn" id="themeBtn" title="日景 / 夜景" aria-label="切换主题">
+          <span class="ic-moon"><Icon name="moon" size={17} /></span>
+          <span class="ic-sun"><Icon name="sun" size={17} /></span>
+        </button>
       </div>
     </header>
 
@@ -89,24 +100,25 @@ const pageTitle = title ? `${title} · ${SITE.name}` : `${SITE.name}的博客`;
     <VinylPlayer />
 
     <script is:inline>
-      // 日夜切换：写 localStorage + 打 data-theme，CSS 三态 token 接管全部颜色
+      // 日夜切换：写 localStorage + 打 data-theme，CSS 三态 token 接管全部颜色；图标纯 CSS 切换
       document.getElementById('themeBtn').addEventListener('click', function () {
         var root = document.documentElement;
         var dark = root.getAttribute('data-theme') === 'dark';
-        if (dark) { root.removeAttribute('data-theme'); localStorage.setItem('xixi-theme', 'light'); this.textContent = '☾'; }
-        else { root.setAttribute('data-theme', 'dark'); localStorage.setItem('xixi-theme', 'dark'); this.textContent = '☀'; }
+        if (dark) { root.removeAttribute('data-theme'); localStorage.setItem('xixi-theme', 'light'); }
+        else { root.setAttribute('data-theme', 'dark'); localStorage.setItem('xixi-theme', 'dark'); }
       });
-      if (document.documentElement.getAttribute('data-theme') === 'dark') {
-        document.getElementById('themeBtn').textContent = '☀';
-      }
 
-      // 阅读进度条
-      var bar = document.getElementById('readbar');
-      addEventListener('scroll', function () {
-        var h = document.documentElement;
-        var p = h.scrollTop / (h.scrollHeight - h.clientHeight || 1);
-        bar.style.width = (p * 100).toFixed(2) + '%';
-      }, { passive: true });
+      // 阅读进度条（window 级监听只挂一次，页面软切换不重复注册）
+      if (!window.__xixiReadbar) {
+        window.__xixiReadbar = true;
+        addEventListener('scroll', function () {
+          var bar = document.getElementById('readbar');
+          if (!bar) return;
+          var h = document.documentElement;
+          var p = h.scrollTop / (h.scrollHeight - h.clientHeight || 1);
+          bar.style.width = (p * 100).toFixed(2) + '%';
+        }, { passive: true });
+      }
     </script>
   </body>
 </html>

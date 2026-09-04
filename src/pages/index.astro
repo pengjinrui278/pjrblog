@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
 import { SITE } from '../consts';
 import { getCollection } from 'astro:content';
 
@@ -16,6 +17,7 @@ const memos = (await getCollection('memos'))
   .slice(0, 2);
 const fmt = (d: Date) => d.toISOString().slice(0, 10);
 const latest = posts[0];
+const deskEmpty = !latest && !memos.length && !trips.length && !movies.length;
 ---
 <Base current="首页" bleed="home">
   <div class="wrap">
@@ -25,7 +27,9 @@ const latest = posts[0];
       <div class="hi" style="max-width:640px">写代码，<br/>也写代码<span class="seal-name">之外</span>。</div>
       <p class="sub">{SITE.description}</p>
       <div class="quick">
-        <a class="btn solid" href={latest ? `/posts/${latest.id}/` : '/posts/'}>读最新一篇 →</a>
+        <a class="btn solid" href={latest ? `/posts/${latest.id}/` : '/write/?type=post'}>
+          {latest ? '读最新一篇' : '写下第一篇'} <span class="ic"><Icon name="pen" size={14} /></span>
+        </a>
         <a class="btn" href="/about/">这是谁？</a>
       </div>
       <div style="margin-top:auto;color:var(--ink2);font-size:13px">↓ 桌面上散落着我的最近</div>
@@ -37,31 +41,37 @@ const latest = posts[0];
       <div class="board-desk" style="height:56vh">
         {latest && (
           <a class="desk-item" href={`/posts/${latest.id}/`} style={`--note:#FDFAF1;--rot:-1.5deg;left:6%;top:12%`}>
-            📄 最新长文<br/><b>{latest.data.title}</b>
+            <Icon name="file" size={14} /> 最新长文<br/><b>{latest.data.title}</b>
             <span class="dt">{fmt(latest.data.pubDate)}</span>
           </a>
         )}
         {memos[0] && (
           <a class="desk-item" href="/board/" style={`--note:${memos[0].data.color}33;--rot:2deg;left:52%;top:8%`}>
-            📌 {memos[0].data.text}
+            <Icon name="pin" size={14} /> {memos[0].data.text}
             <span class="dt">{fmt(memos[0].data.date)}</span>
           </a>
         )}
         {trips[0] && (
           <a class="desk-item photo" href="/travel/" style={`--rot:1.2deg;left:30%;top:44%`}>
-            <img src={trips[0].data.photo ?? '/photos/hangzhou.svg'} alt={trips[0].data.place} width="174" />
-            ✈ {trips[0].data.place} · {trips[0].data.title}
+            {trips[0].data.photo && <img src={trips[0].data.photo} alt={trips[0].data.place} width="174" />}
+            <Icon name="send" size={14} /> {trips[0].data.place} · {trips[0].data.title}
             <span class="dt">{fmt(trips[0].data.date)}</span>
           </a>
         )}
         {movies[0] && (
           <a class="desk-item" href="/movies/" style={`--note:${movies[0].data.color ?? '#8A6A45'}44;--rot:-2.2deg;left:70%;top:40%`}>
-            🎬 《{movies[0].data.title}》<br/>「{movies[0].data.quote}」
-            <span class="dt">{movies[0].data.year} · ★{movies[0].data.rating}</span>
+            <Icon name="film" size={14} /> 《{movies[0].data.title}》<br/>「{movies[0].data.quote}」
+            <span class="dt">{movies[0].data.year} · {movies[0].data.rating} 分</span>
           </a>
         )}
+        {deskEmpty && (
+          <div class="desk-item" style="--note:#FDFAF1;--rot:-1deg;left:8%;top:14%">
+            <Icon name="bulb" size={14} /> 桌面还空着。<br/>
+            去 <a href="/write/" style="color:var(--seal);font-weight:700">写作工作室</a> 添第一笔吧。
+          </div>
+        )}
         <div class="board-add">
-          <a class="btn" href="/board/">去灵感墙整理桌面 →</a>
+          <a class="btn" href="/board/">去灵感墙整理桌面</a>
         </div>
       </div>
     </section>
@@ -69,20 +79,20 @@ const latest = posts[0];
     <section class="block">
       <h2>工坊台 · 可以上手玩</h2>
       <div class="bench">
-        <a class="tool" href="/lab/#agent">
-          <div class="tt">🤖 ReAct Agent 框架</div>
-          <div class="td">12 工具 · 长期记忆 · 多 Agent 协作。复盘的完整思考都在系列文章里。</div>
-          <div class="tm"><span class="tag">Python</span><span class="tag">LLM</span><span class="go">进实验室 →</span></div>
+        <a class="tool" href="/lab/">
+          <div class="tt"><Icon name="bot" size={18} /> 实验室 · 轨道行星</div>
+          <div class="td">正在敲打的作品挂在轨道上，它牵出的文章环绕四周。</div>
+          <div class="tm"><span class="go">进实验室</span></div>
         </a>
-        <a class="tool" href="/lab/#camera">
-          <div class="tt">📷 AI 构图相机</div>
-          <div class="td">ML Kit 几何检测辅助构图。V9 链路真机验收的踩坑记录。</div>
-          <div class="tm"><span class="tag">Android</span><span class="tag">ML Kit</span><span class="go">进实验室 →</span></div>
+        <a class="tool" href="/travel/">
+          <div class="tt"><Icon name="compass" size={18} /> 旅程地图</div>
+          <div class="td">搜索、钉下坐标、配上那天的歌。照片和日志钉在同一个点上。</div>
+          <div class="tm"><span class="go">去钉一枚 pin</span></div>
         </a>
-        <a class="tool" href="/lab/#blog">
-          <div class="tt">🧱 这间书房本身</div>
-          <div class="td">Astro 静态站 · 唱片机 · 旅程地图。自产自销的第一个作品。</div>
-          <div class="tm"><span class="tag">Astro</span><span class="tag">开源</span><span class="go">看复盘 →</span></div>
+        <a class="tool" href="/movies/">
+          <div class="tt"><Icon name="film" size={18} /> 观影票根墙</div>
+          <div class="td">一张票根一部片，只留一句话。票根颜色自己定。</div>
+          <div class="tm"><span class="go">去贴一张票根</span></div>
         </a>
       </div>
     </section>

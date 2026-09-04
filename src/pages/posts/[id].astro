@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Icon from '../../components/Icon.astro';
 import { getCollection, render } from 'astro:content';
 import { GISCUS } from '../../consts';
 
@@ -43,7 +44,7 @@ const giscusOn = Boolean(GISCUS.repo && GISCUS.repoId);
           <>
             <span>·</span>
             <button class="bgm-chip" data-mid={post.data.bgm.mid} data-name={post.data.bgm.name} data-artist={post.data.bgm.artist} title="点击用唱片机播放">
-              ♪ 本篇 BGM：{post.data.bgm.name} — {post.data.bgm.artist}
+              <Icon name="music" size={12} /> 本篇 BGM：{post.data.bgm.name} — {post.data.bgm.artist}
             </button>
           </>
         )}
@@ -90,6 +91,7 @@ const giscusOn = Boolean(GISCUS.repo && GISCUS.repoId);
   </div>
 
   <script is:inline>
+    var CHECK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
     /* --- 代码块增强：file: 首行 → 文件名标签；一键复制 --- */
     document.querySelectorAll('.prose pre').forEach(function (pre) {
       var wrap = document.createElement('div');
@@ -118,7 +120,7 @@ const giscusOn = Boolean(GISCUS.repo && GISCUS.repoId);
       btn.addEventListener('click', function () {
         var src = (code || pre).textContent;
         navigator.clipboard.writeText(src).then(function () {
-          btn.textContent = '已复制 ✓';
+          btn.innerHTML = '已复制 ' + CHECK_SVG;
           setTimeout(function () { btn.textContent = '复制'; }, 1600);
         });
       });

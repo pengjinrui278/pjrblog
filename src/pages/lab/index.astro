@@ -1,27 +1,36 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Icon from '../../components/Icon.astro';
 import { getCollection } from 'astro:content';
 
 const posts = await getCollection('posts', ({ data }) => !data.draft);
-const inSeries = (name: string, order: number) =>
-  posts.find((p) => p.data.series?.name === name && p.data.series?.order === order);
+// 轨道内圈：按 series 归组的复盘文章（系列名 + 序号自动排序）
+const seriesMap = new Map<string, typeof posts>();
+for (const p of posts) {
+  const s = p.data.series;
+  if (!s) continue;
+  if (!seriesMap.has(s.name)) seriesMap.set(s.name, []);
+  seriesMap.get(s.name)!.push(p);
+}
+const innerItems: { href: string; label: string }[] = [];
+for (const [name, list] of seriesMap) {
+  list.sort((a, b) => a.data.series!.order - b.data.series!.order);
+  list.forEach((p, i) => innerItems.push({ href: `/posts/${p.id}/`, label: `${name} · ${i + 1}` }));
+}
+if (!innerItems.length) innerItems.push({ href: '/write/?type=post', label: '轨道虚位 · 写下第一篇系列复盘' });
 ---
 <Base title="实验室" current="实验室" bleed="lab">
   <div class="wrap">
     <div style="padding:52px 0 0">
       <div class="eyebrow">Workbench</div>
       <h1 class="pagetitle">实验室</h1>
-      <p class="lede">工坊台在转：中心是正在敲打的作品，环绕的是它牵出的文章与兄弟项目。悬停暂停，点击直达。</p>
+      <p class="lede">工坊台在转：中心是正在敲打的作品，环绕的是它牵出的文章。悬停暂停，点击直达。给文章填上系列名，它就会自动挂上轨道。</p>
     </div>
 
     <div class="orbit-stage">
-      <div class="orbit-core">🤖<br/>ReAct<br/>Agent 框架</div>
+      <div class="orbit-core"><Icon name="bot" size={30} /><br/>曦曦的<br/>工坊</div>
       <div class="orbit-ring r1">
-        {[
-          { href: inSeries('造一个 Agent', 1) ? `/posts/${inSeries('造一个 Agent', 1)!.id}/` : '/posts/', label: '① 引擎复盘' },
-          { href: inSeries('造一个 Agent', 2) ? `/posts/${inSeries('造一个 Agent', 2)!.id}/` : '/posts/', label: '② 工具注册表' },
-          { href: '/write/?type=post', label: '③ 记忆系统 · 待写' },
-        ].map((it, i) => (
+        {innerItems.slice(0, 3).map((it, i) => (
           <div class="orbit-item" style={`animation-delay:${(-i * 40 / 3).toFixed(1)}s`}>
             <a href={it.href}>{it.label}</a>
           </div>
@@ -29,41 +38,27 @@ const inSeries = (name: string, order: number) =>
       </div>
       <div class="orbit-ring r2">
         {[
-          { href: '#camera', label: '📷 AI 构图相机' },
-          { href: '#blog', label: '🧱 博客本身' },
-          { href: '/board/', label: '📌 灵感墙' },
+          { href: '/travel/', label: '旅程地图', icon: 'compass' },
+          { href: '/board/', label: '灵感墙', icon: 'bulb' },
+          { href: '/movies/', label: '观影墙', icon: 'film' },
         ].map((it, i) => (
           <div class="orbit-item" style={`--rx:250px;--dur:70s;animation-delay:${(-i * 70 / 3).toFixed(1)}s`}>
-            <a href={it.href}>{it.label}</a>
+            <a href={it.href}><Icon name={it.icon} size={13} /> {it.label}</a>
           </div>
         ))}
       </div>
     </div>
 
-    <section class="block" id="camera">
-      <h2>📷 AI 构图辅助相机</h2>
+    <section class="block" id="workbenches">
+      <h2>工位</h2>
       <div class="bench" style="grid-template-columns:1fr 1fr">
         <div class="tool">
-          <div class="tt">它是什么</div>
-          <div class="td">用 ML Kit 几何检测辅助构图的 Android 相机：三分法、对称、引导线实时评分，让"拍得好"有章可循。</div>
+          <div class="tt"><Icon name="code" size={18} /> 工位一 · 虚位以待</div>
+          <div class="td">放你的第一个项目：它是什么、做到哪一步、下一步是什么。直接告诉我帮你排版，或自己动手改 <code>src/pages/lab/index.astro</code>。</div>
         </div>
         <div class="tool">
-          <div class="tt">现状与下一步</div>
-          <div class="td">2026-07-26 大整改：P0-P3 全修复、V9 链路接通、编译与 14 项单测全绿。下一步真机验收 + ML Kit 几何检测落地。</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="block" id="blog">
-      <h2>🧱 这间书房本身</h2>
-      <div class="bench" style="grid-template-columns:1fr 1fr">
-        <div class="tool">
-          <div class="tt">它是什么</div>
-          <div class="td">你正在看的这个博客：Astro 静态站、暖纸日夜双景、唱片机、旅程地图、浸染背景。设计稿先于代码，代码即文章。</div>
-        </div>
-        <div class="tool">
-          <div class="tt">为什么也算作品</div>
-          <div class="td">它是需求收敛方法的证明：三轮问话 → 设计稿 → 动工。这套流程本身，就是实验室要沉淀的东西。</div>
+          <div class="tt"><Icon name="camera" size={18} /> 工位二 · 虚位以待</div>
+          <div class="td">第二个作品的位置也留好了。照片、Demo 链接、踩坑记录都可以钉在这里。</div>
         </div>
       </div>
     </section>

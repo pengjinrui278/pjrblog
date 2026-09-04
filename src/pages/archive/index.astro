@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Icon from '../../components/Icon.astro';
 import { getCollection } from 'astro:content';
 
 const posts = (await getCollection('posts', ({ data }) => !data.draft))
@@ -25,7 +26,7 @@ const allTags = [...new Set(posts.flatMap((p) => p.data.tags))];
     </div>
 
     <div class="searchbox">
-      <span class="si">⌕</span>
+      <span class="si"><Icon name="search" size={14} /></span>
       <input id="searchInput" type="search" placeholder="全文搜索：试试「Agent」或「杭州」…" aria-label="全文搜索" />
     </div>
     <div id="searchResults" style="margin-top:16px"></div>

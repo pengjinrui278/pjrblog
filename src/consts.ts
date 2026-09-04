@@ -2,7 +2,7 @@
 export const SITE = {
   name: '曦曦',
   title: '曦曦的博客',
-  description: '做 AI 应用的工程师。白天写 Agent 和相机，晚上写复盘与随笔；假期在路上，耳机里永远有歌。',
+  description: '一盏灯，一页纸，一些正在生长的文字与作品。',
   // 后续买了域名改这里 + astro.config.mjs 的 site
   url: 'https://xixi-blog.vercel.app',
 };

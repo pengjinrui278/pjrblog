@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Icon from '../../components/Icon.astro';
 import { getCollection } from 'astro:content';
 
 const posts = (await getCollection('posts', ({ data }) => !data.draft))
@@ -14,7 +15,7 @@ let n = 0;
       <div class="eyebrow">Writing</div>
       <h1 class="pagetitle">文章</h1>
       <p class="lede">巨型目录：一行一篇。悬停偷看摘要，点击开始读。</p>
-      <a class="btn solid" href="/write/?type=post" style="margin-top:16px">✎ 写一篇</a>
+      <a class="btn solid" href="/write/?type=post" style="margin-top:16px"><Icon name="pen" size={14} /> 写一篇</a>
     </div>
 
     <div class="giant-list">
@@ -30,5 +31,12 @@ let n = 0;
         );
       })}
     </div>
+    {!posts.length && (
+      <div class="tool" style="margin-top:30px;max-width:460px">
+        <div class="tt"><Icon name="file" size={18} /> 一盏灯，一页白纸</div>
+        <div class="td">这里还没有文章。第一篇最难得——不需要完美，只需要开始。去写作工作室，或者直接在 <code>src/content/posts/</code> 放一个 Markdown 文件。</div>
+        <div class="tm"><a class="btn solid" href="/write/?type=post">写下第一篇</a></div>
+      </div>
+    )}
   </div>
 </Base>

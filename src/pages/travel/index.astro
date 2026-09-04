@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Icon from '../../components/Icon.astro';
 import { getCollection } from 'astro:content';
 
 const trips = (await getCollection('trips')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
@@ -27,12 +28,12 @@ const pins = trips.map((t) => ({
 
     <div class="map-tools">
       <div class="searchbox" style="margin:0;max-width:340px">
-        <span class="si">⌕</span>
+        <span class="si"><Icon name="search" size={14} /></span>
         <input id="placeSearch" type="search" placeholder="搜索地点：如「青岛」「大理古城」…" autocomplete="off" />
       </div>
       <div id="searchResults" class="search-results"></div>
-      <button class="btn" id="markModeBtn" type="button">✚ 点击地图标记</button>
-      <a class="btn" href="/write/?type=trip">✎ 写一篇旅程</a>
+      <button class="btn" id="markModeBtn" type="button"><Icon name="plus" size={14} /> 点击地图标记</button>
+      <a class="btn" href="/write/?type=trip"><Icon name="pen" size={14} /> 写一篇旅程</a>
     </div>
 
     <div class="travel-layout">
@@ -42,16 +43,22 @@ const pins = trips.map((t) => ({
       <div class="jlist" id="jlist">
         {trips.map((t) => (
           <div class="jitem" data-slug={t.id}>
-            <div class="jh"><span>{fmt(t.data.date)} · {t.data.place}</span>{t.data.song && <span>♪ {t.data.song.name}</span>}</div>
+            <div class="jh"><span>{fmt(t.data.date)} · {t.data.place}</span>{t.data.song && <span><Icon name="music" size={11} /> {t.data.song.name}</span>}</div>
             <b>{t.data.title}</b>
             <p>{t.data.excerpt}</p>
             {t.data.song && (
               <div class="sg bgm-chip" style="cursor:pointer" data-mid={t.data.song.mid} data-name={t.data.song.name} data-artist={t.data.song.artist}>
-                ♪ 那天的歌：{t.data.song.name} — {t.data.song.artist}
+                <Icon name="music" size={12} /> 那天的歌：{t.data.song.name} — {t.data.song.artist}
               </div>
             )}
           </div>
         ))}
+        {!trips.length && (
+          <div class="jitem">
+            <b>还没有旅程</b>
+            <p>点击地图任意处，或搜索一个地点——第一枚 pin 就从那里开始。</p>
+          </div>
+        )}
       </div>
     </div>
 
@@ -59,8 +66,8 @@ const pins = trips.map((t) => ({
     <div class="record-modal" id="recordModal" hidden>
       <div class="record-card">
         <div class="record-head">
-          <b>✚ 钉下一枚 pin</b>
-          <button class="iconbtn" id="closeModal" type="button" aria-label="关闭">✕</button>
+          <b><Icon name="plus" size={14} /> 钉下一枚 pin</b>
+          <button class="iconbtn" id="closeModal" type="button" aria-label="关闭"><Icon name="x" size={15} /></button>
         </div>
         <div class="record-grid">
           <label>标题 <input id="fTitle" placeholder="西湖环线骑行" /></label>
@@ -69,7 +76,7 @@ const pins = trips.map((t) => ({
           <label>坐标 <input id="fCoords" readonly /></label>
           <label class="wide">照片 <input id="fPhoto" type="file" accept="image/*" /> <span class="hint">≤800KB，jpg/png/webp/svg</span></label>
           <label>那天的歌 <input id="fSong" placeholder="晴天 — 周杰伦" /></label>
-          <button class="btn" id="songPick" type="button">♪ 搜索补全</button>
+          <button class="btn" id="songPick" type="button"><Icon name="music" size={13} /> 搜索补全</button>
           <label class="wide">日志 <textarea id="fBody" rows="4" placeholder="何时、何地、做了什么……"></textarea></label>
         </div>
         <div id="songResults" class="search-results"></div>
@@ -121,6 +128,11 @@ const pins = trips.map((t) => ({
       return [lng * 2 - gLng, lat * 2 - gLat];
     }
 
+    /* ---------- 内联 SVG 图标（与 Icon.astro 同套笔画） ---------- */
+    const NOTE = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+    const PLUS = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+    const CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
     const el = document.getElementById('map')!;
     let pins: any[] = [];
     try { pins = JSON.parse(el.getAttribute('data-pins') || '[]'); } catch { pins = []; }
@@ -151,7 +163,7 @@ const pins = trips.map((t) => ({
 
     function popupHtml(p: any) {
       const song = p.song
-        ? `<div class="sg bgm-chip" data-mid="${p.song.mid}" data-name="${p.song.name}" data-artist="${p.song.artist}">♪ 那天的歌：${p.song.name} — ${p.song.artist}</div>`
+        ? `<div class="sg bgm-chip" data-mid="${p.song.mid}" data-name="${p.song.name}" data-artist="${p.song.artist}">${NOTE} 那天的歌：${p.song.name} — ${p.song.artist}</div>`
         : '';
       const ph = p.photo ? `<div class="ph" style="background-image:url('${p.photo}')"></div>` : '';
       return `<div class="pinpop"><b>${p.place} · ${p.title}</b>${ph}<div class="jd">${p.date}。${p.excerpt}</div>${song}</div>`;
@@ -193,7 +205,7 @@ const pins = trips.map((t) => ({
     document.getElementById('markModeBtn')!.addEventListener('click', function () {
       this.classList.toggle('solid');
       map.getCanvas().style.cursor = this.classList.contains('solid') ? 'crosshair' : '';
-      this.textContent = this.classList.contains('solid') ? '✚ 点击地图任意处…' : '✚ 点击地图标记';
+      this.innerHTML = this.classList.contains('solid') ? `${PLUS} 点击地图任意处…` : `${PLUS} 点击地图标记`;
     });
     map.on('click', (e) => {
       const btn = document.getElementById('markModeBtn')!;
@@ -201,7 +213,7 @@ const pins = trips.map((t) => ({
       const [wLng, wLat] = gcj02ToWgs84(e.lngLat.lng, e.lngLat.lat);
       btn.classList.remove('solid');
       map.getCanvas().style.cursor = '';
-      btn.textContent = '✚ 点击地图标记';
+      btn.innerHTML = `${PLUS} 点击地图标记`;
       openForm(wLng, wLat);
     });
 
@@ -320,7 +332,7 @@ ${body}
           body: JSON.stringify({ files, message: `trip: ${title}` }),
         });
         if (r.ok) {
-          hint.textContent = '✓ 已提交！约 1 分钟后自动上线';
+          hint.innerHTML = `${CHECK} 已提交！约 1 分钟后自动上线`;
           setTimeout(() => location.reload(), 2500);
         } else if (r.status === 501) {
           throw new Error('no-token');
@@ -353,10 +365,13 @@ ${body}
       });
     });
 
-    // 日夜切换 → 换高德暗色瓦片
+    // 日夜切换 → 换高德暗色瓦片（容器被软切换移除后自动断开，避免旧观察者累积）
     const mo = new MutationObserver(() => {
-      const src = map.getSource('gaode') as maplibregl.RasterTileSource;
-      if (src) src.setTiles(tileSet(isDark()));
+      if (!document.getElementById('map') || !document.body.contains(map.getContainer())) { mo.disconnect(); return; }
+      try {
+        const src = map.getSource('gaode') as maplibregl.RasterTileSource;
+        if (src) src.setTiles(tileSet(isDark()));
+      } catch { /* 旧 map 已随页面卸载 */ }
     });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   </script>

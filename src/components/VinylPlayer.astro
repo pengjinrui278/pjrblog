@@ -1,10 +1,11 @@
 ---
 // 全局唱机设备台：吧台形态（A2）+ 水墨盘（B3）+ 自由拖拽记忆位置（C2）+ 滑出歌单（D3）。
-// 三条播放路径（本地文件 > QQ 在线 > 外链兜底），🔀 随机播放，可整单加载 QQ 歌单。
-// 失败时诚实降级，不假装在放。
+// 三条播放路径（本地文件 > QQ 在线 > 外链兜底），随机播放，可整单加载 QQ 歌单。
+// transition:persist → 页面软切换时元素不被重建，跨页面连续播放。
 import { PLAYLIST, QQ_PLAYLIST_ID } from '../consts';
+import Icon from './Icon.astro';
 ---
-<div id="player" aria-label="唱机设备台">
+<div id="player" aria-label="唱机设备台" transition:persist="player">
   <div class="vinyl-wrap">
     <div class="vinyl"><span class="label">曦</span></div>
     <span class="p-arm"></span>
@@ -20,13 +21,13 @@ import { PLAYLIST, QQ_PLAYLIST_ID } from '../consts';
     </div>
   </div>
   <div class="p-ctrl">
-    <button id="pShuffle" title="随机播放">🔀</button>
-    <button id="pListBtn" title="歌单">☰</button>
-    <button id="pPrev" title="上一首">⏮</button>
-    <button class="play" id="pPlay" title="播放 / 暂停">▶</button>
-    <button id="pNext" title="下一首">⏭</button>
+    <button id="pShuffle" title="随机播放"><Icon name="shuffle" size={15} /></button>
+    <button id="pListBtn" title="歌单"><Icon name="list" size={15} /></button>
+    <button id="pPrev" title="上一首"><Icon name="prev" size={15} /></button>
+    <button class="play" id="pPlay" title="播放 / 暂停"><Icon name="play" size={17} /></button>
+    <button id="pNext" title="下一首"><Icon name="next" size={15} /></button>
   </div>
-  <button class="toggle" id="playerToggle" title="收起 / 展开">♪</button>
+  <button class="toggle" id="playerToggle" title="收起 / 展开"><Icon name="music" size={14} /></button>
   <audio id="pAudio" preload="none"></audio>
   <div class="playlist" id="pPlaylist">
     <div class="ph2">歌单「灯下常听」· QQ 音乐源</div>
@@ -36,10 +37,20 @@ import { PLAYLIST, QQ_PLAYLIST_ID } from '../consts';
 
 <script define:vars={{ playlist: PLAYLIST, qqPlaylistId: QQ_PLAYLIST_ID }}>
   (function () {
+    if (window.__xixiPlayerInit) return; // 页面软切换后内联脚本可能重跑：只初始化一次
+    window.__xixiPlayerInit = true;
     var player = document.getElementById('player');
     var audio = document.getElementById('pAudio');
     var list = (playlist || []).map(function (s) { return { mid: s.mid, name: s.name, artist: s.artist, file: s.file || '' }; });
     var idx = 0, urls = {}, shuffle = false, bag = [];
+
+    /* ---------- 内联 SVG 图标（与 Icon.astro 同套笔画） ---------- */
+    function ic(inner, size) {
+      return '<svg width="' + (size || 14) + '" height="' + (size || 14) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+    }
+    var I_PLAY = ic('<polygon points="7 4 20 12 7 20" fill="currentColor" stroke="none"/>', 17);
+    var I_PAUSE = ic('<rect x="6" y="4" width="4" height="16" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" fill="currentColor" stroke="none"/>', 17);
+    var I_TRI = ic('<polygon points="7 4 20 12 7 20" fill="currentColor" stroke="none"/>', 9);
 
     // 收起/展开（迷你态收成一张小碟）
     document.getElementById('playerToggle').addEventListener('click', function () {
@@ -52,9 +63,9 @@ import { PLAYLIST, QQ_PLAYLIST_ID } from '../consts';
       ul.innerHTML = '';
       list.forEach(function (s, i) {
         var li = document.createElement('li');
-        li.innerHTML = '<span class="eq">' + (i === idx ? '▶' : '·') + '</span>' +
+        li.innerHTML = '<span class="eq">' + (i === idx ? I_TRI : '<i class="dot">·</i>') + '</span>' +
           '<span class="n">' + s.name + ' <span>— ' + s.artist + '</span></span>' +
-          '<span class="dur">' + (s.file ? '本地' : 'QQ♪') + '</span>';
+          '<span class="dur">' + (s.file ? '本地' : 'QQ') + '</span>';
         if (i === idx) li.classList.add('playing');
         li.addEventListener('click', function () { playAt(i); });
         ul.appendChild(li);
@@ -146,7 +157,7 @@ import { PLAYLIST, QQ_PLAYLIST_ID } from '../consts';
 
     function setRestricted(s) {
       player.classList.remove('playing');
-      document.getElementById('pPlay').textContent = '▶';
+      document.getElementById('pPlay').innerHTML = I_PLAY;
       document.getElementById('pArtist').innerHTML =
         '<a href="https://y.qq.com/n/ryqq/songDetail/' + s.mid + '" target="_blank" rel="noopener" style="color:var(--seal)">播放受限 · 去 QQ 音乐听 ↗</a>';
     }
@@ -163,7 +174,7 @@ import { PLAYLIST, QQ_PLAYLIST_ID } from '../consts';
         audio.src = url;
         await audio.play();
         player.classList.add('playing');
-        document.getElementById('pPlay').textContent = '⏸';
+        document.getElementById('pPlay').innerHTML = I_PAUSE;
         document.getElementById('pArtist').textContent = s.artist;
       } catch (e) {
         setRestricted(s);
@@ -172,8 +183,8 @@ import { PLAYLIST, QQ_PLAYLIST_ID } from '../consts';
 
     document.getElementById('pPlay').addEventListener('click', function () {
       if (!audio.src) { playAt(idx); return; }
-      if (audio.paused) { audio.play(); player.classList.add('playing'); this.textContent = '⏸'; }
-      else { audio.pause(); player.classList.remove('playing'); this.textContent = '▶'; }
+      if (audio.paused) { audio.play(); player.classList.add('playing'); this.innerHTML = I_PAUSE; }
+      else { audio.pause(); player.classList.remove('playing'); this.innerHTML = I_PLAY; }
     });
     document.getElementById('pPrev').addEventListener('click', function () { playAt(prevIndex()); });
     document.getElementById('pNext').addEventListener('click', function () { playAt(nextIndex()); });

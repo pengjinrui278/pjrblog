@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Icon from '../../components/Icon.astro';
 import { getCollection } from 'astro:content';
 
 const memos = (await getCollection('memos'))
@@ -21,7 +22,7 @@ const items = [
   })),
   ...trips.map((t, i) => ({
     id: `photo-${t.id}`, kind: 'photo', text: `${t.data.place} · ${t.data.title}`, date: fmt(t.data.date),
-    photo: t.data.photo ?? '/photos/hangzhou.svg', ...pos(i + memos.length + 2),
+    photo: t.data.photo ?? '', ...pos(i + memos.length + 2),
   })),
 ];
 ---
@@ -34,9 +35,14 @@ const items = [
     </div>
 
     <div class="board-desk" id="desk" data-items={JSON.stringify(items)}>
+      {!items.length && (
+        <div class="desk-item" style="--note:#FDFAF1;--rot:-1deg;left:8%;top:12%">
+          <Icon name="pin" size={14} /> 一张便签都没有。<br/>右下角随手丢一张？
+        </div>
+      )}
       <div class="board-add">
         <input id="quickNote" placeholder="丢一张新便签…" maxlength="60" />
-        <button class="btn solid" id="addNote" type="button">✚</button>
+        <button class="btn solid" id="addNote" type="button" aria-label="添加便签"><Icon name="plus" size={15} /></button>
       </div>
     </div>
     <p class="hint" id="boardHint" style="margin-top:12px">拖拽即整理 · 位置存在你自己的浏览器里 · 配好 GITHUB_TOKEN 后新便签可直接入库上线</p>
@@ -45,6 +51,8 @@ const items = [
   <script define:vars={{ items }}>
     const desk = document.getElementById('desk');
     const HINT = document.getElementById('boardHint');
+    const PIN = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+    const CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
 
     function makeEl(it, i) {
       const el = document.createElement(it.kind === 'photo' ? 'a' : 'div');
@@ -55,10 +63,10 @@ const items = [
       const p = saved[it.id] ?? it;
       el.style.left = p.left; el.style.top = p.top; el.style.setProperty('--rot', p.rot);
       if (it.kind === 'photo') {
-        el.innerHTML = `<img src="${it.photo}" width="174" alt="">${it.text}<span class="dt">${it.date}</span>`;
+        el.innerHTML = `${it.photo ? `<img src="${it.photo}" width="174" alt="">` : ''}${it.text}<span class="dt">${it.date}</span>`;
       } else {
         el.style.setProperty('--note', (it.color || '#D9A441') + '33');
-        el.innerHTML = `📌 ${it.text}<span class="dt">${it.date}</span>`;
+        el.innerHTML = `${PIN} ${it.text}<span class="dt">${it.date}</span>`;
       }
       attachDrag(el);
       desk.insertBefore(el, desk.querySelector('.board-add'));
@@ -115,7 +123,7 @@ const items = [
             }], message: `memo: ${text.slice(0, 20)}`,
           }),
         });
-        HINT.textContent = r.ok ? '✓ 便签已入库，约 1 分钟后全站可见' : '便签已上墙（本机）；配置 GITHUB_TOKEN 后可入库';
+        HINT.innerHTML = r.ok ? `${CHECK} 便签已入库，约 1 分钟后全站可见` : '便签已上墙（本机）；配置 GITHUB_TOKEN 后可入库';
       } catch {
         HINT.textContent = '便签已上墙（本机保存）；配置 GITHUB_TOKEN 后可入库';
       }

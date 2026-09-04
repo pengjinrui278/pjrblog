@@ -1,19 +1,20 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Icon from '../../components/Icon.astro';
 ---
 <Base title="写作工作室" current="" bleed="write">
   <div class="wrap">
     <div style="padding:52px 0 0">
       <div class="eyebrow">Writing Studio</div>
-      <h1 class="pagetitle">✎ 写作工作室</h1>
+      <h1 class="pagetitle"><Icon name="pen" size={26} /> 写作工作室</h1>
       <p class="lede">在这里写下一切：文章、旅程、电影票根、便签。提交后经 GitHub 自动部署上线；未配置令牌时，为你生成 Markdown 复制保存。</p>
     </div>
 
     <div class="write-tabs" id="tabs">
-      <button data-t="post" class="on">📄 文章</button>
-      <button data-t="trip">✈ 旅程</button>
-      <button data-t="movie">🎬 观影</button>
-      <button data-t="memo">📌 便签</button>
+      <button data-t="post" class="on"><Icon name="file" size={14} /> 文章</button>
+      <button data-t="trip"><Icon name="send" size={14} /> 旅程</button>
+      <button data-t="movie"><Icon name="film" size={14} /> 观影</button>
+      <button data-t="memo"><Icon name="pin" size={14} /> 便签</button>
     </div>
 
     <!-- 文章 -->
@@ -25,7 +26,7 @@ import Base from '../../layouts/Base.astro';
         <label>系列名 <input id="p_series" placeholder="造一个 Agent（可留空）" /></label>
         <label>系列序号 <input id="p_order" type="number" min="1" placeholder="3" /></label>
         <label class="wide">本篇 BGM <input id="p_bgm" placeholder="山丘 — 李宗盛" /> </label>
-        <button class="btn" id="p_bgmSearch" type="button">♪ 搜索补全 mid</button>
+        <button class="btn" id="p_bgmSearch" type="button"><Icon name="music" size={13} /> 搜索补全 mid</button>
         <label class="wide">摘要 <input id="p_desc" placeholder="一句话说清这篇值不值得读" /></label>
         <label class="wide">正文（Markdown）
           <textarea id="p_body" rows="14" class="mono" placeholder="## 第一节&#10;&#10;写点什么…… 支持 ```mermaid 与 $公式$"></textarea>
@@ -40,7 +41,7 @@ import Base from '../../layouts/Base.astro';
         <label>地点 <input id="t_place" placeholder="浙江杭州" /></label>
         <label>日期 <input id="t_date" type="date" /></label>
         <label>坐标（WGS-84） <input id="t_coords" placeholder="120.1505, 30.2462" /></label>
-        <button class="btn" id="t_geo" type="button">⌕ 搜索城市自动填坐标</button>
+        <button class="btn" id="t_geo" type="button"><Icon name="search" size={13} /> 搜索城市自动填坐标</button>
         <label class="wide">照片 <input id="t_photo" type="file" accept="image/*" /> <span class="hint">≤800KB</span></label>
         <label>那天的歌 <input id="t_song" placeholder="晴天 — 周杰伦 — mid(可选)" /></label>
         <label class="wide">日志 <textarea id="t_body" rows="6" placeholder="何时、何地、做了什么……"></textarea></label>
@@ -79,6 +80,7 @@ import Base from '../../layouts/Base.astro';
   </div>
 
   <script>
+    const CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
     const $ = (id: string) => document.getElementById(id) as HTMLInputElement;
     const panes = document.querySelectorAll<HTMLElement>('.pane');
     let type = new URLSearchParams(location.search).get('type') ?? 'post';
@@ -222,7 +224,7 @@ date: ${new Date().toISOString().slice(0, 10)}
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ files, message: `${type}: ${title || path}` }),
         });
-        if (r.ok) { hint.textContent = '✓ 已提交！约 1 分钟后自动上线'; return; }
+        if (r.ok) { hint.innerHTML = `${CHECK} 已提交！约 1 分钟后自动上线`; return; }
         if (r.status !== 501) { const j = await r.json().catch(() => ({})); hint.textContent = '提交失败：' + (j.error ?? r.status); return; }
         throw new Error('no-token');
       } catch {
