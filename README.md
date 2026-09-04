@@ -31,9 +31,16 @@ npm run build      # 构建 + Pagefind 全文索引（自动同步进 .vercel/ou
 2. [vercel.com/new](https://vercel.com/new) 导入该仓库，零额外配置（Astro 自动识别）；
 3. 部署完得到 `xxx.vercel.app` 二级域名，之后可随时绑定自有域名。
 
-**让唱片机真正能放歌**：Vercel → Settings → Environment Variables →
-新增 `QQ_MUSIC_COOKIE`（浏览器登录 y.qq.com，F12 → Network → 任一请求 → 复制完整 Cookie 值）。
-不配置也不影响使用：播放器会诚实降级为「去 QQ 音乐听 ↗」。
+**让唱片机真正能放歌**（QQ 已关闭匿名播放，三条路按优先级）：
+
+1. **本地文件（最可靠，推荐）**：把 `.mp3` 放进 `public/music/`，在 `src/consts.ts` 的歌单里填 `file: '/music/xxx.mp3'`。永不过期，不受任何接口限制。
+2. **QQ 音乐在线播放**：Vercel → Settings → Environment Variables → 新增 `QQ_MUSIC_COOKIE`：
+   浏览器登录 y.qq.com → F12 → Network → 任意请求 → 复制完整的 `Cookie` 值。
+   配置后歌曲经服务端代理取播放地址。注意 Cookie 会过期（约 1 个月），失效后重新粘贴。
+3. **歌单扩容**：把 `src/consts.ts` 的 `QQ_PLAYLIST_ID` 填成你的 QQ 歌单 ID
+   （QQ 音乐 → 歌单 → 分享 → 链接里的数字），唱片机会自动并入整单，配合 🔀 随机播放。
+
+未配置任何一项时，播放器降级为「去 QQ 音乐听 ↗」链接，不会假装在放歌。
 
 ## 结构速览
 

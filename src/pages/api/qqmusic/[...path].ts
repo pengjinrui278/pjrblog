@@ -36,6 +36,18 @@ async function search(q: string) {
   }));
 }
 
+async function playlist(id: string) {
+  const u = `https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?id=${encodeURIComponent(id)}&format=json&newsong=1`;
+  const r = await fetch(u, { headers: qqHeaders() });
+  const j = await r.json();
+  const songs = j.data?.[0]?.songlist ?? [];
+  return songs.map((s: any) => ({
+    mid: s.songmid,
+    name: s.songname,
+    artist: (s.singer ?? []).map((x: any) => x.name).join('/'),
+  }));
+}
+
 async function songUrl(mid: string) {
   const guid = Math.floor(Math.random() * 1e9).toString();
   const body = {
@@ -75,14 +87,16 @@ export async function GET({ url, params }: { url: URL; params: { path?: string }
   const action = params.path ?? '';
   const mid = url.searchParams.get('mid');
   const q = url.searchParams.get('q');
+  const id = url.searchParams.get('id');
   try {
     if (action === 'search' && q) return Response.json({ list: await search(q) });
+    if (action === 'playlist' && id) return Response.json({ list: await playlist(id) });
     if (action === 'url' && mid) {
       const r = await songUrl(mid);
       if ('url' in r && r.url) return Response.json({ url: r.url });
       return Response.json({ code: 'restricted', ...r }, { status: 502 });
     }
-    return Response.json({ error: 'usage: /api/qqmusic/search?q= | /api/qqmusic/url?mid=' }, { status: 400 });
+    return Response.json({ error: 'usage: search?q= | playlist?id= | url?mid=' }, { status: 400 });
   } catch (e: any) {
     return Response.json({ error: String(e?.message ?? e) }, { status: 502 });
   }
