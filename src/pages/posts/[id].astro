@@ -1,0 +1,192 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+import { GISCUS } from '../../consts';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('posts', ({ data }) => !data.draft);
+  return posts.map((post) => ({ params: { id: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content, headings } = await render(post);
+
+const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+// 阅读时长：中文字符按 400 字/分钟估算
+const plain = post.body?.replace(/[#*`>\-\[\]()!|]/g, '') ?? '';
+const minutes = Math.max(1, Math.round(plain.replace(/\s/g, '').length / 400));
+
+// 同系列的兄弟文章 → 上下篇
+let seriesPosts: typeof posts = [];
+if (post.data.series) {
+  seriesPosts = (await getCollection('posts', ({ data }) => !data.draft && data.series?.name === post.data.series.name))
+    .sort((a, b) => a.data.series!.order - b.data.series!.order);
+}
+const pos = seriesPosts.findIndex((p) => p.id === post.id);
+const prev = pos > 0 ? seriesPosts[pos - 1] : null;
+const next = pos >= 0 && pos < seriesPosts.length - 1 ? seriesPosts[pos + 1] : null;
+const toc = headings.filter((h) => h.depth === 2);
+const giscusOn = Boolean(GISCUS.repo && GISCUS.repoId);
+---
+<Base title={post.data.title} description={post.data.description} current="文章">
+  <div class="wrap">
+    <div class="article-head">
+      <div class="eyebrow">{post.data.series ? `系列「${post.data.series.name}」 · 第 ${post.data.series.order} 篇` : (post.data.tags[0] ?? '随笔')}</div>
+      <h1>{post.data.title}</h1>
+      <div class="article-meta">
+        <span>{fmt(post.data.pubDate)}</span>
+        <span>·</span>
+        <span>约 {minutes} 分钟</span>
+        {post.data.updatedDate && (<><span>·</span><span>更新于 {fmt(post.data.updatedDate)}</span></>)}
+        {post.data.bgm && (
+          <>
+            <span>·</span>
+            <button class="bgm-chip" data-mid={post.data.bgm.mid} data-name={post.data.bgm.name} data-artist={post.data.bgm.artist} title="点击用唱片机播放">
+              ♪ 本篇 BGM：{post.data.bgm.name} — {post.data.bgm.artist}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+
+    <div class="article-layout">
+      <article class="prose">
+        <Content />
+      </article>
+      {toc.length > 0 && (
+        <aside class="toc" id="toc">
+          <b>本篇目录</b>
+          {toc.map((h) => <a href={`#${h.slug}`} data-slug={h.slug}>{h.text}</a>)}
+        </aside>
+      )}
+    </div>
+
+    {(prev || next) && (
+      <div class="serbar">
+        <span class="pn">
+          {prev ? <a href={`/posts/${prev.id}/`}>← 上一篇<b>{prev.data.title}</b></a> : <span>已是系列第一篇</span>}
+        </span>
+        <span style="color:var(--ink2);font-size:13px">系列共 {seriesPosts.length} 篇 · 读至第 {post.data.series!.order} 篇</span>
+        <span class="pn" style="text-align:right">
+          {next ? <a href={`/posts/${next.id}/`}>下一篇 →<b>{next.data.title}</b></a> : <span>已是系列最后一篇</span>}
+        </span>
+      </div>
+    )}
+
+    <div class="comments">
+      <h3>讨论</h3>
+      {giscusOn ? (
+        <div class="giscus" id="giscusBox"
+          data-repo={GISCUS.repo} data-repoid={GISCUS.repoId}
+          data-category={GISCUS.category} data-categoryid={GISCUS.categoryId}></div>
+      ) : (
+        <div class="pending">
+          评论区即将开放：配置 Giscus（GitHub Discussions，零成本、零数据库）后，这里就能坐下了。
+          详见 <code class="mono" style="font-size:12.5px">src/consts.ts</code> 里的 GISCUS 配置项。
+        </div>
+      )}
+    </div>
+  </div>
+
+  <script is:inline>
+    /* --- 代码块增强：file: 首行 → 文件名标签；一键复制 --- */
+    document.querySelectorAll('.prose pre').forEach(function (pre) {
+      var wrap = document.createElement('div');
+      wrap.className = 'codeblock';
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(pre);
+
+      var code = pre.querySelector('code');
+      var text = code ? code.textContent : pre.textContent;
+      var lines = text.split('\n');
+      var m = lines[0].match(/^\s*(\/\/|#|\/\*|--)\s*file:\s*(.+?)\s*$/);
+      if (m) {
+        var fname = document.createElement('span');
+        fname.className = 'fname';
+        fname.textContent = m[2];
+        wrap.appendChild(fname);
+        // 从显示文本里去掉 file: 行
+        var cleaned = lines.slice(1).join('\n');
+        if (code) code.textContent = cleaned; else pre.textContent = cleaned;
+      }
+
+      var btn = document.createElement('button');
+      btn.className = 'copybtn';
+      btn.type = 'button';
+      btn.textContent = '复制';
+      btn.addEventListener('click', function () {
+        var src = (code || pre).textContent;
+        navigator.clipboard.writeText(src).then(function () {
+          btn.textContent = '已复制 ✓';
+          setTimeout(function () { btn.textContent = '复制'; }, 1600);
+        });
+      });
+      wrap.appendChild(btn);
+    });
+
+    /* --- mermaid：浏览器端渲染 --- */
+    (async function () {
+      var blocks = document.querySelectorAll('.prose pre code.language-mermaid');
+      if (!blocks.length) return;
+      try {
+        await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'neutral', securityLevel: 'loose' });
+        for (var i = 0; i < blocks.length; i++) {
+          var src = blocks[i].textContent;
+          var box = document.createElement('div');
+          box.className = 'mermaid-box';
+          var inner = document.createElement('div');
+          inner.className = 'mermaid';
+          inner.textContent = src;
+          box.appendChild(inner);
+          blocks[i].closest('pre').replaceWith(box);
+        }
+        await mermaid.run({ querySelector: '.mermaid' });
+      } catch (e) {
+        console.warn('mermaid 加载失败，保留源码', e);
+      }
+    })();
+
+    /* --- 目录高亮：滚动跟随 --- */
+    (function () {
+      var links = document.querySelectorAll('#toc a');
+      if (!links.length) return;
+      var map = {};
+      links.forEach(function (a) { map[a.getAttribute('data-slug')] = a; });
+      var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            links.forEach(function (a) { a.classList.remove('cur'); });
+            var a = map[en.target.id];
+            if (a) a.classList.add('cur');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      Object.keys(map).forEach(function (slug) {
+        var el = document.getElementById(slug);
+        if (el) obs.observe(el);
+      });
+    })();
+
+    /* --- Giscus：按当前主题注入 --- */
+    (function () {
+      var box = document.getElementById('giscusBox');
+      if (!box) return;
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      var s = document.createElement('script');
+      s.src = 'https://giscus.app/client.js';
+      s.setAttribute('data-repo', box.getAttribute('data-repo'));
+      s.setAttribute('data-repo-id', box.getAttribute('data-repoid'));
+      s.setAttribute('data-category', box.getAttribute('data-category'));
+      s.setAttribute('data-category-id', box.getAttribute('data-categoryid'));
+      s.setAttribute('data-mapping', 'pathname');
+      s.setAttribute('data-reactions-enabled', '1');
+      s.setAttribute('data-theme', dark ? 'dark' : 'light');
+      s.crossOrigin = 'anonymous';
+      s.async = true;
+      box.appendChild(s);
+    })();
+  </script>
+</Base>

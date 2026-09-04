@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220">
+  <defs>
+    <linearGradient id="sky3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E2A45"/><stop offset="1" stop-color="#7A4A4A"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="220" fill="url(#sky3)"/>
+  <g fill="#F2D38A" opacity=".9">
+    <rect x="60" y="120" width="34" height="100"/><rect x="110" y="140" width="30" height="80"/>
+    <rect x="156" y="110" width="38" height="110"/><rect x="210" y="145" width="28" height="75"/>
+    <rect x="252" y="125" width="34" height="95"/><rect x="300" y="150" width="30" height="70"/>
+  </g>
+  <g fill="#F2D38A" opacity=".5">
+    <rect x="66" y="128" width="6" height="6"/><rect x="78" y="128" width="6" height="6"/>
+    <rect x="66" y="142" width="6" height="6"/><rect x="162" y="118" width="6" height="6"/>
+    <rect x="174" y="118" width="6" height="6"/><rect x="162" y="132" width="6" height="6"/>
+    <rect x="258" y="133" width="6" height="6"/><rect x="270" y="133" width="6" height="6"/>
+  </g>
+  <path d="M0,60 Q100,40 200,58 T400,52" stroke="#F2D38A" stroke-width="2.5" fill="none" opacity=".7"/>
+  <text x="200" y="205" font-size="13" fill="#F2E8D5" text-anchor="middle" font-family="serif">重庆 · 洪崖洞</text>
+</svg>

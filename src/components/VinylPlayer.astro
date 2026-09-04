@@ -1,0 +1,143 @@
+---
+// 全局悬浮唱片机：QQ 音乐源，经 /api/qqmusic 代理取播放地址。
+// 代理不可用（本地 file:// 或网络故障）时自动降级为提示，不打扰阅读。
+import { PLAYLIST } from '../consts';
+---
+<div id="player" class="min" aria-label="唱片机">
+  <button class="toggle" id="playerToggle" title="收起 / 展开">♪</button>
+  <div class="vinyl-wrap">
+    <div class="vinyl"><span class="label">曦</span></div>
+    <span class="p-arm"></span>
+  </div>
+  <div class="p-info">
+    <div class="sn" id="pName">{PLAYLIST[0]?.name ?? '灯下常听'}</div>
+    <div class="sa" id="pArtist">{PLAYLIST[0]?.artist ?? ''}</div>
+    <div class="p-ctrl">
+      <button id="pListBtn" title="歌单">☰</button>
+      <button id="pPrev" title="上一首">⏮</button>
+      <button class="play" id="pPlay" title="播放 / 暂停">▶</button>
+      <button id="pNext" title="下一首">⏭</button>
+    </div>
+    <div class="pbar" id="pBar"><i id="pBarFill"></i></div>
+    <div class="ptime" id="pTime">0:00 / 0:00</div>
+  </div>
+  <audio id="pAudio" preload="none"></audio>
+  <div class="playlist" id="pPlaylist">
+    <div class="ph2">歌单「灯下常听」· QQ 音乐源</div>
+    <ul class="plist2" id="pListUl"></ul>
+  </div>
+</div>
+
+<script define:vars={{ playlist: PLAYLIST }}>
+  (function () {
+    var player = document.getElementById('player');
+    var audio = document.getElementById('pAudio');
+    var list = playlist || [];
+    var idx = 0, urls = {};
+
+    // 收起/展开
+    document.getElementById('playerToggle').addEventListener('click', function () {
+      player.classList.toggle('min');
+    });
+
+    // 歌单渲染
+    var ul = document.getElementById('pListUl');
+    list.forEach(function (s, i) {
+      var li = document.createElement('li');
+      li.innerHTML = '<span class="eq">' + (i === 0 ? '▶' : '·') + '</span>' +
+        '<span class="n">' + s.name + ' <span>— ' + s.artist + '</span></span>' +
+        '<span class="dur">QQ♪</span>';
+      li.addEventListener('click', function () { playAt(i); });
+      ul.appendChild(li);
+    });
+    document.getElementById('pListBtn').addEventListener('click', function () {
+      document.getElementById('pPlaylist').classList.toggle('open');
+    });
+
+    function fmt(sec) {
+      if (!isFinite(sec)) return '0:00';
+      var m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+      return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    // 经代理取 QQ 音乐播放地址（缓存）
+    async function resolveUrl(mid) {
+      if (urls[mid]) return urls[mid];
+      var r = await fetch('/api/qqmusic/url?mid=' + encodeURIComponent(mid));
+      if (!r.ok) throw new Error('proxy ' + r.status);
+      var j = await r.json();
+      if (!j.url) throw new Error(j.error || 'no url');
+      urls[mid] = j.url;
+      return j.url;
+    }
+
+    async function playAt(i) {
+      if (!list.length) return;
+      idx = (i + list.length) % list.length;
+      var s = list[idx];
+      document.getElementById('pName').textContent = s.name;
+      document.getElementById('pArtist').textContent = s.artist;
+      Array.prototype.forEach.call(ul.children, function (li, k) {
+        li.querySelector('.eq').textContent = k === idx ? '▶' : '·';
+        li.classList.toggle('playing', k === idx);
+      });
+      try {
+        var url = await resolveUrl(s.mid);
+        audio.src = url;
+        await audio.play();
+        player.classList.add('playing');
+        document.getElementById('pPlay').textContent = '⏸';
+        document.getElementById('pArtist').innerHTML = '';
+        document.getElementById('pArtist').textContent = s.artist;
+      } catch (e) {
+        // 诚实降级：QQ 关闭匿名播放时，指一条明路而不是假装在放
+        player.classList.remove('playing');
+        document.getElementById('pPlay').textContent = '▶';
+        document.getElementById('pArtist').innerHTML =
+          '<a href="https://y.qq.com/n/ryqq/songDetail/' + s.mid + '" target="_blank" rel="noopener" style="color:var(--seal)">播放受限 · 去 QQ 音乐听 ↗</a>';
+      }
+    }
+
+    document.getElementById('pPlay').addEventListener('click', function () {
+      if (!audio.src) { playAt(idx); return; }
+      if (audio.paused) { audio.play(); player.classList.add('playing'); this.textContent = '⏸'; }
+      else { audio.pause(); player.classList.remove('playing'); this.textContent = '▶'; }
+    });
+    document.getElementById('pPrev').addEventListener('click', function () { playAt(idx - 1); });
+    document.getElementById('pNext').addEventListener('click', function () { playAt(idx + 1); });
+
+    audio.addEventListener('timeupdate', function () {
+      var p = audio.currentTime / (audio.duration || 1);
+      document.getElementById('pBarFill').style.width = (p * 100).toFixed(1) + '%';
+      document.getElementById('pTime').textContent = fmt(audio.currentTime) + ' / ' + fmt(audio.duration);
+    });
+    audio.addEventListener('ended', function () { playAt(idx + 1); });
+
+    // 进度条拖动
+    document.getElementById('pBar').addEventListener('click', function (e) {
+      if (!audio.duration) return;
+      var r = this.getBoundingClientRect();
+      audio.currentTime = (e.clientX - r.left) / r.width * audio.duration;
+    });
+
+    // 文章 BGM / 地图"那首歌"联动：事件委托，动态生成的 .bgm-chip 也能接住
+    document.addEventListener('click', function (ev) {
+      var chip = ev.target.closest ? ev.target.closest('.bgm-chip[data-mid]') : null;
+      if (!chip) return;
+      var mid = chip.getAttribute('data-mid');
+      var i = list.findIndex(function (s) { return s.mid === mid; });
+      if (i >= 0) { playAt(i); player.classList.remove('min'); }
+      else {
+        // 不在歌单里：临时插到当前位置播放
+        var tmp = { mid: mid, name: chip.getAttribute('data-name') || '本篇 BGM', artist: chip.getAttribute('data-artist') || '' };
+        list.splice(idx + 1, 0, tmp);
+        var li = document.createElement('li');
+        li.innerHTML = '<span class="eq">▶</span><span class="n">' + tmp.name + ' <span>— ' + tmp.artist + '</span></span><span class="dur">BGM</span>';
+        li.addEventListener('click', function () { playAt(idx + 1); });
+        ul.insertBefore(li, ul.children[idx + 1] || null);
+        playAt(idx + 1);
+        player.classList.remove('min');
+      }
+    });
+  })();
+</script>

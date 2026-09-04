@@ -1,0 +1,79 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE } from '../consts';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('posts', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .slice(0, 5);
+const trips = (await getCollection('trips'))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0, 3);
+const fmt = (d: Date) => d.toISOString().slice(0, 10);
+---
+<Base current="首页">
+  <div class="wrap">
+    <div class="hero">
+      <div class="eyebrow">Under the Lamp</div>
+      <div class="hi">你好，我是<span class="seal-name">{SITE.name}</span>。</div>
+      <p class="sub">{SITE.description}这里是我的书房，也是我的名片。</p>
+      <div class="quick">
+        <a class="btn solid" href="/posts/">开始阅读 →</a>
+        <a class="btn" href="/lab/">逛逛实验室</a>
+        <a class="btn" href="/travel/">墙上的地图</a>
+      </div>
+    </div>
+
+    <section class="block">
+      <h2>工坊台 · 可以上手玩</h2>
+      <div class="bench">
+        <a class="tool" href="/lab/#agent">
+          <div class="tt">🤖 ReAct Agent 框架</div>
+          <div class="td">12 工具 · 长期记忆 · 多 Agent 协作 · 任务工作流。框架复盘的完整思考都在系列文章里。</div>
+          <div class="tm"><span class="tag">Python</span><span class="tag">LLM</span><span class="go">进实验室 →</span></div>
+        </a>
+        <a class="tool" href="/lab/#camera">
+          <div class="tt">📷 AI 构图相机</div>
+          <div class="td">ML Kit 几何检测辅助构图。V9 链路真机验收的踩坑记录与改良路线。</div>
+          <div class="tm"><span class="tag">Android</span><span class="tag">ML Kit</span><span class="go">进实验室 →</span></div>
+        </a>
+        <a class="tool" href="/lab/#blog">
+          <div class="tt">🧱 这间书房本身</div>
+          <div class="td">Astro 静态站 · 唱片机 · 旅程地图。自产自销的第一个作品，设计稿与代码都在。</div>
+          <div class="tm"><span class="tag">Astro</span><span class="tag">开源</span><span class="go">看复盘 →</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>近期长文</h2>
+      <ul class="plist">
+        {posts.map((p) => (
+          <li>
+            <span class="d">{fmt(p.data.pubDate)}</span>
+            <span class="t">
+              <a href={`/posts/${p.id}/`}>{p.data.title}</a>
+              {p.data.series && <span class="ser"> · 系列「{p.data.series.name}」第 {p.data.series.order} 篇</span>}
+            </span>
+            <span class="s">{p.data.tags[0] ?? '随笔'}</span>
+          </li>
+        ))}
+      </ul>
+      <p style="margin-top:18px"><a href="/posts/">全部文章 →</a></p>
+    </section>
+
+    <section class="block">
+      <h2>最近的旅程</h2>
+      <ul class="plist">
+        {trips.map((t) => (
+          <li>
+            <span class="d">{fmt(t.data.date)}</span>
+            <span class="t"><a href="/travel/">{t.data.place} · {t.data.title}</a></span>
+            <span class="s">✈</span>
+          </li>
+        ))}
+      </ul>
+      <p style="margin-top:18px"><a href="/travel/">展开地图 →</a></p>
+    </section>
+  </div>
+</Base>

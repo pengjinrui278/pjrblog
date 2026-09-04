@@ -1,0 +1,97 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('posts', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+// 按年份分组
+const byYear = new Map<number, typeof posts>();
+for (const p of posts) {
+  const y = p.data.pubDate.getFullYear();
+  if (!byYear.has(y)) byYear.set(y, []);
+  byYear.get(y)!.push(p);
+}
+const years = [...byYear.keys()].sort((a, b) => b - a);
+const fmt = (d: Date) => d.toISOString().slice(0, 10);
+const allTags = [...new Set(posts.flatMap((p) => p.data.tags))];
+---
+<Base title="归档" current="归档">
+  <div class="wrap">
+    <div style="padding:52px 0 0">
+      <div class="eyebrow">Archive</div>
+      <h1 class="pagetitle">归档与搜索</h1>
+      <p class="lede">时间线留给未来的自己；搜索框帮十年后的你在三秒内找到那篇记不清标题的文章。</p>
+    </div>
+
+    <div class="searchbox">
+      <span class="si">⌕</span>
+      <input id="searchInput" type="search" placeholder="全文搜索：试试「Agent」或「杭州」…" aria-label="全文搜索" />
+    </div>
+    <div id="searchResults" style="margin-top:16px"></div>
+
+    {allTags.length > 0 && (
+      <div class="tagcloud">
+        {allTags.map((t) => <a href={`/posts/`}>#{t}</a>)}
+      </div>
+    )}
+
+    {years.map((y) => (
+      <ul class="timeline">
+        <div class="yr">{y}</div>
+        {byYear.get(y)!.map((p) => (
+          <li class="item">
+            <span class="d">{fmt(p.data.pubDate)}</span>
+            <a href={`/posts/${p.id}/`}>{p.data.title}</a>
+            {p.data.series && <span style="color:var(--ink2);font-size:12.5px"> · {p.data.series.name} {p.data.series.order}</span>}
+          </li>
+        ))}
+      </ul>
+    ))}
+  </div>
+
+  <script>
+    // Pagefind：构建期生成的静态索引，无外部服务。dev 模式下文件不存在，静默降级为标题筛选。
+    const input = document.getElementById('searchInput') as HTMLInputElement;
+    const box = document.getElementById('searchResults')!;
+
+    let pagefind: any = null;
+    try {
+      // 构建后才生成的静态索引，用 script 注入避免构建期解析；dev 模式 404 则走降级
+      pagefind = await new Promise((resolve) => {
+        const s = document.createElement('script');
+        s.src = '/pagefind/pagefind.js';
+        s.onload = () => resolve((window as any).pagefind);
+        s.onerror = () => resolve(null);
+        document.head.appendChild(s);
+      });
+      if (pagefind) await pagefind.init();
+    } catch { /* 走降级 */ }
+
+    const items = Array.from(document.querySelectorAll<HTMLAnchorElement>('.timeline a'));
+    let t: number;
+    input.addEventListener('input', () => {
+      clearTimeout(t);
+      t = setTimeout(async () => {
+        const q = input.value.trim();
+        if (!q) { box.innerHTML = ''; items.forEach((a) => a.closest('li')!.style.display = ''); return; }
+        if (pagefind) {
+          const r = await pagefind.search(q);
+          const data = await Promise.all(r.results.slice(0, 8).map((x: any) => x.data()));
+          box.innerHTML = data.map((d: any) =>
+            `<div style="padding:9px 2px;border-bottom:1px dashed var(--line)">
+               <a href="${d.url}" style="font-weight:700">${d.meta?.title ?? d.url}</a>
+               <div style="font-size:13px;color:var(--ink2)">${d.excerpt ?? ''}</div>
+             </div>`).join('');
+        } else {
+          // 降级：只按标题匹配，提示完整搜索需构建后使用
+          items.forEach((a) => {
+            const hit = a.textContent!.toLowerCase().includes(q.toLowerCase());
+            a.closest('li')!.style.display = hit ? '' : 'none';
+          });
+          box.innerHTML = '<div style="font-size:13px;color:var(--ink2)">（dev 模式仅筛选标题；构建后启用全文搜索）</div>';
+        }
+      }, 200);
+    });
+  </script>
+</Base>

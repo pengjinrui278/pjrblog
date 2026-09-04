@@ -1,0 +1,31 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE } from '../consts';
+---
+<Base title="关于" current="关于">
+  <div class="wrap">
+    <div style="padding:52px 0 0;max-width:640px">
+      <div class="eyebrow">About</div>
+      <h1 class="pagetitle">关于{SITE.name}</h1>
+      <p class="lede">（身份句待定——你觉得不着急，那就等它自己长出来。好的自我介绍不是写出来的，是做出来的事攒出来的。）</p>
+
+      <div class="tool" style="margin-top:30px">
+        <div class="tt">这个博客里有什么</div>
+        <div class="td">
+          技术长文与项目复盘（写给未来的自己，也欢迎路过的同行坐下长聊）；
+          一间可以上手玩的实验室；一面钉着旅程的地图；
+          一台常开的唱片机——文章和地点，都有各自的歌。
+        </div>
+      </div>
+
+      <div class="tool" style="margin-top:14px">
+        <div class="tt">怎么联系我</div>
+        <div class="td">
+          评论区见（每篇文章底部，Giscus，需要 GitHub 账号）；
+          或者邮件：<!-- 换成你的邮箱 -->blog@example.com。<br>
+          订阅更新：<a href="/rss.xml">RSS</a>。
+        </div>
+      </div>
+    </div>
+  </div>
+</Base>

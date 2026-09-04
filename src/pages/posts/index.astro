@@ -1,0 +1,65 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('posts', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+// 按系列分组：先系列（组内按 order），后散篇（按时间倒序）
+const bySeries = new Map<string, typeof posts>();
+const loose: typeof posts = [];
+for (const p of posts) {
+  if (p.data.series) {
+    const k = p.data.series.name;
+    if (!bySeries.has(k)) bySeries.set(k, []);
+    bySeries.get(k)!.push(p);
+  } else loose.push(p);
+}
+for (const arr of bySeries.values()) arr.sort((a, b) => a.data.series!.order - b.data.series!.order);
+const fmt = (d: Date) => d.toISOString().slice(0, 10);
+---
+<Base title="文章" current="文章">
+  <div class="wrap">
+    <div style="padding:52px 0 0">
+      <div class="eyebrow">Writing</div>
+      <h1 class="pagetitle">文章</h1>
+      <p class="lede">技术长文与项目复盘，写给未来的自己，也欢迎路过的你坐下长聊。</p>
+    </div>
+
+    {[...bySeries.entries()].map(([name, arr]) => (
+      <div class="sergrp">
+        <div class="serhead">
+          <h3>「{name}」</h3>
+          <span>共 {arr.length} 篇 · 建议按顺序读</span>
+        </div>
+        <ul class="plist">
+          {arr.map((p) => (
+            <li>
+              <span class="d">{fmt(p.data.pubDate)}</span>
+              <span class="t">
+                <a href={`/posts/${p.id}/`}>{p.data.title}</a>
+                {p.data.bgm && <span class="ser"> · ♪ {p.data.bgm.name}</span>}
+              </span>
+              <span class="s">第 {p.data.series!.order} 篇</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+
+    {loose.length > 0 && (
+      <div class="sergrp">
+        <div class="serhead"><h3>散篇</h3><span>不合集的独立文章</span></div>
+        <ul class="plist">
+          {loose.map((p) => (
+            <li>
+              <span class="d">{fmt(p.data.pubDate)}</span>
+              <span class="t"><a href={`/posts/${p.id}/`}>{p.data.title}</a></span>
+              <span class="s">{p.data.tags[0] ?? '随笔'}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </div>
+</Base>

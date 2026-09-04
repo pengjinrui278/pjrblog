@@ -1,0 +1,157 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const trips = (await getCollection('trips')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+// 交给前端的数据：WGS-84 坐标原样输出，GCJ-02 纠偏在浏览器完成
+const pins = trips.map((t) => ({
+  slug: t.id,
+  title: t.data.title,
+  place: t.data.place,
+  date: fmt(t.data.date),
+  coords: t.data.coords,
+  photo: t.data.photo ?? '',
+  song: t.data.song ?? null,
+  excerpt: t.data.excerpt ?? '',
+}));
+---
+<Base title="旅程" current="旅程">
+  <div class="wrap">
+    <div style="padding:52px 0 0">
+      <div class="eyebrow">Travel Log</div>
+      <h1 class="pagetitle">旅程地图</h1>
+      <p class="lede">{trips.length} 个地方 · 每一枚 pin 都是一篇当日日志：何时、何地、做了什么、耳机里放着哪首歌。</p>
+    </div>
+
+    <div class="travel-layout">
+      <div id="map" data-pins={JSON.stringify(pins)}>
+        <div class="map-fallback">地图加载中……若长时间无响应，说明当前网络无法访问高德瓦片，侧栏日志仍可正常阅读。</div>
+      </div>
+      <div class="jlist" id="jlist">
+        {trips.map((t, i) => (
+          <div class="jitem" data-slug={t.id} data-i={i}>
+            <div class="jh"><span>{fmt(t.data.date)} · {t.data.place}</span>{t.data.song && <span>♪ {t.data.song.name}</span>}</div>
+            <b>{t.data.title}</b>
+            <p>{t.data.excerpt}</p>
+            {t.data.song && (
+              <div class="sg bgm-chip" style="cursor:pointer" data-mid={t.data.song.mid} data-name={t.data.song.name} data-artist={t.data.song.artist}>
+                ♪ 那天的歌：{t.data.song.name} — {t.data.song.artist}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import maplibregl from 'maplibre-gl';
+    import 'maplibre-gl/dist/maplibre-gl.css';
+
+    /* ---------- WGS-84 → GCJ-02（火星坐标系），对齐高德瓦片 ---------- */
+    const PI = Math.PI;
+    const A = 6378245.0, EE = 0.00669342162296594323;
+    function tLat(x: number, y: number) {
+      let r = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+      r += ((20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2) / 3;
+      r += ((20 * Math.sin(y * PI) + 40 * Math.sin((y / 3) * PI)) * 2) / 3;
+      r += ((160 * Math.sin((y / 12) * PI) + 320 * Math.sin((y * PI) / 30)) * 2) / 3;
+      return r;
+    }
+    function tLng(x: number, y: number) {
+      let r = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+      r += ((20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2) / 3;
+      r += ((20 * Math.sin(x * PI) + 40 * Math.sin((x / 3) * PI)) * 2) / 3;
+      r += ((150 * Math.sin((x / 12) * PI) + 300 * Math.sin((x / 30) * PI)) * 2) / 3;
+      return r;
+    }
+    function wgs84ToGcj02(lng: number, lat: number) {
+      const dLat = tLat(lng - 105, lat - 35), dLng = tLng(lng - 105, lat - 35);
+      const radLat = (lat / 180) * PI;
+      let magic = Math.sin(radLat); magic = 1 - EE * magic * magic;
+      const sqrtMagic = Math.sqrt(magic);
+      const dLatPx = (dLat * 180) / (((A * (1 - EE)) / (magic * sqrtMagic)) * PI);
+      const dLngPx = (dLng * 180) / ((A / sqrtMagic) * Math.cos(radLat) * PI);
+      return [lng + dLngPx, lat + dLatPx];
+    }
+
+    const el = document.getElementById('map')!;
+    let pins: any[] = [];
+    try { pins = JSON.parse(el.getAttribute('data-pins') || '[]'); } catch { pins = []; }
+
+    const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
+    const tileUrl = (dark: boolean) => dark
+      ? 'https://webst0{1-4}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'
+      : 'https://webrd0{1-4}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}';
+
+    const first = pins[0] ? wgs84ToGcj02(pins[0].coords.lng, pins[0].coords.lat) : [104.06, 30.67];
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: {
+        version: 8,
+        sources: { gaode: { type: 'raster', tiles: [tileUrl(isDark())], tileSize: 256 } },
+        layers: [{ id: 'bg', type: 'raster', source: 'gaode' }],
+      },
+      center: first as [number, number],
+      zoom: 4.2,
+    });
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+
+    function popupHtml(p: any) {
+      const song = p.song
+        ? `<div class="sg bgm-chip" data-mid="${p.song.mid}" data-name="${p.song.name}" data-artist="${p.song.artist}">♪ 那天的歌：${p.song.name} — ${p.song.artist}</div>`
+        : '';
+      const ph = p.photo ? `<div class="ph" style="background-image:url('${p.photo}')"></div>` : '';
+      return `<div class="pinpop"><b>${p.place} · ${p.title}</b>${ph}<div class="jd">${p.date}。${p.excerpt}</div>${song}</div>`;
+    }
+
+    function selectJitem(slug: string) {
+      document.querySelectorAll('.jitem').forEach((j) => j.classList.toggle('sel', j.getAttribute('data-slug') === slug));
+    }
+
+    map.on('load', () => {
+      if (!pins.length) return;
+      const bounds = new maplibregl.LngLatBounds();
+      pins.forEach((p) => {
+        const [lng, lat] = wgs84ToGcj02(p.coords.lng, p.coords.lat);
+        const mk = new maplibregl.Marker({ color: '#B5432C' })
+          .setLngLat([lng, lat])
+          .setPopup(new maplibregl.Popup({ closeButton: true, maxWidth: '280px' }).setHTML(popupHtml(p)))
+          .addTo(map);
+        mk.getElement().addEventListener('click', () => selectJitem(p.slug));
+        bounds.extend([lng, lat]);
+      });
+      if (pins.length > 1) map.fitBounds(bounds, { padding: 60, maxZoom: 6 });
+    });
+
+    // 侧栏日志 → 飞到对应 pin 并弹窗
+    document.querySelectorAll('.jitem').forEach((item) => {
+      item.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.bgm-chip')) return;
+        const slug = item.getAttribute('data-slug');
+        const p = pins.find((x) => x.slug === slug);
+        if (!p) return;
+        const [lng, lat] = wgs84ToGcj02(p.coords.lng, p.coords.lat);
+        selectJitem(slug);
+        map.flyTo({ center: [lng, lat], zoom: 8, speed: 1.4 });
+        setTimeout(() => {
+          const mk = (map as any)._markers?.find((m: any) => {
+            const ll = m.getLngLat();
+            return Math.abs(ll.lng - lng) < 1e-6 && Math.abs(ll.lat - lat) < 1e-6;
+          });
+          mk ? mk.togglePopup() : new maplibregl.Popup().setLngLat([lng, lat]).setHTML(popupHtml(p)).addTo(map);
+        }, 900);
+      });
+    });
+
+    // 日夜切换 → 换高德暗色瓦片
+    const mo = new MutationObserver(() => {
+      const src = map.getSource('gaode') as maplibregl.RasterTileSource;
+      if (src) src.setTiles([tileUrl(isDark())]);
+    });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  </script>
+</Base>
